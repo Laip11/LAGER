@@ -1,5 +1,4 @@
-
-
+from utils import get_batch_inputs,get_layer_outputs
 from transformers import AutoModelForCausalLM,AutoTokenizer
 import pandas as pd
 from tqdm import tqdm 
@@ -11,100 +10,6 @@ import numpy as np
 import torch
 import warnings
 warnings.filterwarnings("ignore")
-
-
-def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048,with_cot:int=0):
-
-    tokenized_inputs = []
-    if tokenizer.pad_token_id == None:
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    if with_cot:
-        messages = [{"role": "user", "content": prompt+'Please think through it step by step' } for prompt in prompts]
-    else:
-        messages = [{"role": "user", "content": prompt } for prompt in prompts]
-
-    all_text = [tokenizer.apply_chat_template([message],tokenize=False,add_generation_prompt = True) for message in messages]
-
-    save_idx_ls,post_del_text = [],[]
-    for i in range(len(all_text)):
-        text = all_text[i]
-        if len(tokenizer(text)['input_ids']) <= max_length:
-            save_idx_ls.append(i)
-            post_del_text.append(text)
-
-    for i in range(0,len(post_del_text),batch_size):
-        text_batch = post_del_text[i:(i+batch_size)]
-        batch_prompts = [prompts[idx] for idx in save_idx_ls[i:(i+batch_size)]]
-        batch_inputs = tokenizer(text_batch, padding=padding, max_length = max_length, return_tensors="pt",padding_side = 'left').to(device)
-        tokenized_inputs.append({'batch_prompts':batch_prompts, 'batch_inputs':batch_inputs,'text_batch':text_batch})
-    return (tokenized_inputs,save_idx_ls)
-
-
-def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_ids_list,temperature = 0):
-
-    all_res = []
-    if temperature != 0:
-        do_sample = True
-    else:
-        do_sample = False
-    similarity_matrix = []
-    for block_inputs in tqdm(tokenized_inputs):
-
-        prompts = block_inputs['batch_prompts']
-        outputs = model.generate(
-                    **block_inputs['batch_inputs'],
-                    output_hidden_states=True,
-                    return_dict_in_generate=True,
-                    do_sample = do_sample,
-                    temperature = temperature,
-                    top_k = 5,
-                    top_p = 0.9,
-                    max_new_tokens = max_new_tokens,
-                    )
-        responses_ids = outputs.sequences[:,block_inputs['batch_inputs']['input_ids'].shape[-1]:]
-        columns = ['layer_n','direct_score','weighted_score','probs']
-        responses = tokenizer.batch_decode(responses_ids,skip_special_tokens=True)
-        print(responses)
-        
-        for i in range(responses_ids.shape[0]):
-            score_idxs  = None
-            for j in range(responses_ids.shape[1]-1,-1,-1):
-                if responses_ids[i,j] in points_ids_list:
-                    score_idxs = j
-                    break
-            if score_idxs == None:
-                res = pd.DataFrame([[-1]*len(columns)],columns=columns)
-                all_res.append({'prompt':prompts[i],'res':res})
-                continue
-            
-            score_hidden_state = outputs.hidden_states[score_idxs]
-            res = pd.DataFrame(columns=columns)
-
-            logits_list = []
-            for layer_n,layer_hidden_state in enumerate(score_hidden_state):
-                
-                last_token_hidden_state = layer_hidden_state[i,-1,:]
-                
-                lm_head = model.lm_head
-
-                logits = lm_head(last_token_hidden_state)
-                logits_list.append(logits[points_ids_list].to(torch.float32).to('cpu').tolist())
-
-                probs = logits[points_ids_list].softmax(dim=-1)
-                probs_dict = { p+1: probs[p].item() for p in range(len(points_ids_list)) }
-
-                direct_score  = probs.argmax(dim=-1).item()+1
-                weight_score = sum([key*value for key,value in zip(probs_dict.keys(),probs_dict.values())])
-
-                probs = probs.tolist()
-                layer_res = pd.DataFrame([[layer_n,direct_score,weight_score,probs]],columns=columns)
-                res = pd.concat([res,layer_res],axis=0,ignore_index=True)
-    
-            res['logits'] = logits_list
-            all_res.append({'prompt':prompts[i],'res':res})
-    return all_res 
-
 
 
 if __name__ == '__main__':
