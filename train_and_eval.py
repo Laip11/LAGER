@@ -78,7 +78,7 @@ def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
 
 def print_correlations(all_score_dict,human_score):
     metrics = ['pearson','spearman']
-    scores = ['direct_score','weighted_score','weighted_direct_score','internalscore','pre_score1','pre_score3','pre_score2','pre_score4']
+    scores = ['direct_score','palmscore_w','palmscore_wo']
     table = PrettyTable(['score_type']+metrics)
     for score in scores:
         add_row = [score] +[round(calc_corr(all_score_dict[score],score_type=score,human_score=human_score,type_r = 'pearson'),3),
@@ -132,11 +132,12 @@ if __name__ == '__main__':
     
     save_ls,all_human_score,direct_score_ls,weighted_score_ls,avg_direct_score_ls,avg_weighted_score = [],[],[],[],[],[]
 
+    weighted_weighted_score_ls = []
+    palmscore_w_ls =[]
+    palmscore_wo_ls = []
+    avg_logits_weighted_score_ls = []
 
-    pre_score_ls1 = []
-    pre_score_ls2 = []
-    pre_score_ls3 = []
-    pre_score_ls4 = []
+
     score = np.array([[1,2,3,4,5] for i in range(pd.DataFrame(all_res[0]['df']).shape[0])])
     final_score  = pd.DataFrame(score)
 
@@ -158,10 +159,10 @@ if __name__ == '__main__':
         distribution2 = torch.softmax((logits*weights).sum(),dim=-1)
         palmscore_w = ((distribution2*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()).item()
 
-
-        logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        distribution2 = (logits).apply(lambda x:torch.tensor(x,dtype=torch.float32).argmax(dim=-1))
-        pre_score = ((torch.tensor([ i+1 for i in distribution2]))*weights).sum().item()
+        # logits argmax weighted score
+        # logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
+        # distribution2 = (logits).apply(lambda x:torch.tensor(x,dtype=torch.float32).argmax(dim=-1))
+        # pre_score = ((torch.tensor([ i+1 for i in distribution2]))*weights).sum().item()
 
         #print(pre_score2)
         #pre_score2 = torch.argmax(distribution2).item()+1
@@ -181,19 +182,19 @@ if __name__ == '__main__':
         weighted_score_ls.append(res['weighted_socre'])
         avg_direct_score_ls.append(res['weighted_direct_socre'])
         avg_weighted_score.append(res['internalscore'])
-        pre_score_ls1.append(pre_score1)
-        pre_score_ls2.append(pre_score2)
-        pre_score_ls3.append(pre_score3)
-        pre_score_ls4.append(pre_score)
+        weighted_weighted_score_ls.append(weighted_weighted_score)
+        palmscore_w_ls.append(palmscore_w)
+        palmscore_wo_ls.append(palmscore_wo)
+        avg_logits_weighted_score_ls.append(avg_logits_weighted_score)
         
     all_score_dict = {'direct_score':direct_score_ls,
                     'weighted_score':weighted_score_ls,
-                    'weighted_direct_score':weighted_direct_score_ls,
+                    'avg_direct_score':avg_direct_score_ls,
                     'avg_weighted_score':avg_weighted_score,
-                    'pre_score1':pre_score_ls1,
-                    'pre_score2':pre_score_ls2,
-                    'pre_score3':pre_score_ls3,
-                    'pre_score4':pre_score_ls4
+                    'weighted_weighted_score':weighted_weighted_score_ls,
+                    'palmscore_w':palmscore_w_ls,
+                    'palmscore_wo_ls':palmscore_wo_ls,
+                    'avg_logits_weighted_score_ls':avg_logits_weighted_score_ls
                     }
 
     print_correlations(all_score_dict,all_human_score)
