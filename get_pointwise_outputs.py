@@ -23,7 +23,6 @@ if __name__ == '__main__':
     argparser.add_argument('--with_feedback', type=int, default=0)
     argparser.add_argument('--dtype', type=str, default='bfloat16')
     argparser.add_argument('--max_length', type=int, default=2048)
-    argparser.add_argument('--with_cot', type=int, default=0)
     argparser.add_argument('--temperature', type=float, default=0)
     args = argparser.parse_args()
 

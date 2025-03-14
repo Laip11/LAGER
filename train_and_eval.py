@@ -3,17 +3,15 @@ from tqdm import tqdm,trange
 import numpy as np
 import pandas as pd
 import torch
-from pyexpat import model
-import os
 import argparse
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
 import torch.nn as nn
-import random
-random.seed(56)
-from scipy.stats import spearmanr,pearsonr,kendalltau
+from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
+import random
+
+random.seed(56)
 warnings.filterwarnings("ignore")
 
 
@@ -113,7 +111,7 @@ if __name__ == '__main__':
         logits_ls.append(_logits)
         weighted_score_ls.append(weighted_score)
 
-    
+
     weights,all_loss = optimize_layer_weights(logits_ls, human_score_ls, nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
 
     print("learned weights:", weights)
@@ -129,7 +127,7 @@ if __name__ == '__main__':
     elif 'internlm' in data_path.lower():
         model_name = 'internlm3-8b-instruct'
 
-    
+
     save_ls,all_human_score,direct_score_ls,weighted_score_ls,avg_direct_score_ls,avg_weighted_score = [],[],[],[],[],[]
 
     weighted_weighted_score_ls = []

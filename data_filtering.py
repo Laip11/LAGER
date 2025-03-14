@@ -1,4 +1,4 @@
-from my_utils.setup_logger import setup_logger
+from .utils import setup_logger
 import json
 from transformers import AutoTokenizer,AutoModelForCausalLM
 from tqdm import tqdm
@@ -7,104 +7,18 @@ import numpy as np
 import os
 import warnings
 import argparse  
-# conda activate llm
-#     python data_filtering.py --aspect
-sft_aspects = ['answer_accuracy', 'logical_consistency', 'relevance', 'fluency_and_clarity', 'length_appropriateness', 'diversity', 'instruction_difficulty']
+from .utils import get_layer_outputs,get_batch_inputs
+
+
+judge_aspects = ['answer_accuracy', 
+               'logical_consistency', 
+               'relevance', 
+               'fluency_and_clarity', 
+               'length_appropriateness', 
+               'diversity', 
+               'instruction_difficulty']
+
 warnings.filterwarnings("ignore")
-
-
-def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048):
-    from tqdm import tqdm
-    tokenized_inputs = []
-    if tokenizer.pad_token_id == None:
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-
-    messages = [{"role": "user", "content": prompt } for prompt in prompts]
-
-    all_text = [tokenizer.apply_chat_template([message],tokenize=False,add_generation_prompt = True) for message in messages]
-
-    save_idx_ls,post_del_text = [],[]
-    for i in tqdm(range(len(all_text))):
-        text = all_text[i]
-        if len(tokenizer(text)['input_ids']) <= max_length:
-            save_idx_ls.append(i)
-            post_del_text.append(text)
-
-    for i in tqdm(range(0,len(post_del_text),batch_size)):
-        text_batch = post_del_text[i:(i+batch_size)]
-        batch_prompts = [prompts[idx] for idx in save_idx_ls[i:(i+batch_size)]]
-        batch_inputs = tokenizer(text_batch, padding=padding, max_length = max_length, return_tensors="pt",padding_side = 'left').to(device)
-        tokenized_inputs.append({'batch_prompts':batch_prompts, 'batch_inputs':batch_inputs,'text_batch':text_batch})
-    return (tokenized_inputs,save_idx_ls)
-
-
-def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_ids_list,temperature = 0):
-
-    all_res = []
-    if temperature != 0:
-        do_sample = True
-    else:
-        do_sample = False
-    
-    for block_inputs in tqdm(tokenized_inputs):
-
-        prompts = block_inputs['batch_prompts']
-        outputs = model.generate(
-                    **block_inputs['batch_inputs'],
-                    output_hidden_states=True,
-                    return_dict_in_generate=True,
-                    do_sample = do_sample,
-                    temperature = temperature,
-                    top_k = 5,
-                    top_p = 0.9,
-                    max_new_tokens = max_new_tokens,
-                    )
-        responses_ids = outputs.sequences[:,block_inputs['batch_inputs']['input_ids'].shape[-1]:]
-        columns = ['layer_n','direct_score','weighted_score','probs','ratio']
-        
-        for i in range(responses_ids.shape[0]):
-            score_idxs  = None
-            for j in range(responses_ids.shape[1]-1,-1,-1):
-                if responses_ids[i,j] in points_ids_list:
-                    score_idxs = j
-                    break
-            if score_idxs == None:
-                res = pd.DataFrame([[-1]*len(columns)],columns=columns)
-                all_res.append({'prompt':prompts[i],'res':res})
-                continue
-            
-            score_hidden_state = outputs.hidden_states[score_idxs]
-            res = pd.DataFrame(columns=columns)
-            h_list= []
-            logits_list = []
-            for layer_n,layer_hidden_state in enumerate(score_hidden_state):
-                
-                last_token_hidden_state = layer_hidden_state[i,-1,:]
-                
-                lm_head = model.lm_head
-
-                logits = lm_head(last_token_hidden_state)
-                logits_list.append(logits[points_ids_list].to(torch.float32).to('cpu').tolist())
-                h_list.append(last_token_hidden_state.to(torch.float32).to('cpu').tolist())
-                soft_max_logits = logits.softmax(dim=-1)
-                max_logits = soft_max_logits.max(dim=-1).values.item()
-                point_max_logits = soft_max_logits[points_ids_list].max(dim=-1).values.item()
-                ratio = point_max_logits/max_logits
-                probs = logits[points_ids_list].softmax(dim=-1)
-
-                direct_score  = probs.argmax(dim=-1).item()+1
-                probs_dict = { p+1: probs[p].item() for p in range(len(points_ids_list)) }
-                weight_score = sum([key*value for key,value in zip(probs_dict.keys(),probs_dict.values())])
-
-                probs = probs.tolist()
-                layer_res = pd.DataFrame([[layer_n,direct_score,weight_score,probs,ratio]],columns=columns)
-                res = pd.concat([res,layer_res],axis=0,ignore_index=True)
-
-
-            res['logits'] = logits_list
-            all_res.append({'prompt':prompts[i],'res':res})
-        
-    return all_res 
 
 
 if __name__ == '__main__':
@@ -115,8 +29,8 @@ if __name__ == '__main__':
     args.add_argument('--batch_size', type=int,default=16)
     args = args.parse_args()
 
-    if args.aspect not in sft_aspects:
-        raise ValueError(f'Aspect {args.aspect} is not in the list of valid aspects: {sft_aspects}')
+    if args.aspect not in judge_aspects:
+        raise ValueError(f'Aspect {args.aspect} is not in the list of valid aspects: {judge_aspects}')
 
     logger = setup_logger(__name__,log_file=f"data_filering_{args.aspect}.log")
 
@@ -124,7 +38,7 @@ if __name__ == '__main__':
 
     logger.info('Start loading model and tokenizer...')
     # load model and tokenizer
-    model_path = args.model_path 
+    model_path = args.model_path
 
     model = AutoModelForCausalLM.from_pretrained(model_path,torch_dtype = torch.bfloat16,device_map = 'cuda').eval()
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -144,7 +58,7 @@ if __name__ == '__main__':
     logger.info('Start filtering data...')
 
     all_res = get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens = 15,points_ids_list = points_ids_list)
-    
+
     logger.info('Data filtering finished.')
     logger.info('Start saving results...')
     weights = [0.003437180072069168,
@@ -180,45 +94,44 @@ if __name__ == '__main__':
  0.005272462032735348,
  0.0053072962909936905,
  0.024530891329050064]
-    direct_score_ls,weighted_score_ls,weighted_direct_score_ls,internalscore_ls = [],[],[],[]
-    pred_score_ls1,pred_score_ls2,pred_score_ls3 = [],[],[]
+    direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighted_score_ls = [],[],[],[]
+    palmscore_w_ls,palmscore_wo_ls = [],[]
     for res in all_res:
         df = pd.DataFrame(res['res'])
         if df['direct_score'].iloc[-1] == -1:
             direct_score_ls.append(-1)
             weighted_score_ls.append(-1)
             weighted_direct_score_ls.append(-1)
-            internalscore_ls.append(-1)
-            pred_score_ls1.append(-1)
-            pred_score_ls2.append(-1)
-            pred_score_ls3.append(-1)
+            avg_weighted_score_ls.append(-1)
+            palmscore_w_ls.append(-1)
+            palmscore_wo_ls.append(-1)
             continue
         logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # 加权
+        # 加权 palmscore(w tuning)
         distribution1 = torch.softmax((logits*weights).sum(),dim=-1)
         pre_score1 = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
-        # 不加权
+
+        # 不加权 palmscore(w/o tuning)
         distribution2 = torch.softmax(logits.sum(),dim=-1)
         pre_score2 = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
-        distribution3 = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1))
-        pre_score3 = ((distribution3.apply(lambda x:(x*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum()))*weights).sum().item()
+
         direct_score_ls.append(res['res'].iloc[-1]['direct_score'])
         weighted_score_ls.append(res['res'].iloc[-1]['weighted_score'])
         weighted_direct_score_ls.append(res['res']['direct_score'].mean().item())
-        internalscore_ls.append(res['res']['weighted_score'].mean())
-        pred_score_ls1.append(pre_score1)
-        pred_score_ls2.append(pre_score2)
-        pred_score_ls3.append(pre_score3)
+        avg_weighted_score_ls.append(res['res']['weighted_score'].mean())
+
+        palmscore_w_ls.append(pre_score1)
+        palmscore_wo_ls.append(pre_score2)
     final_df = all_data[['instruction','input','output',f'prompt_{args.aspect}']].iloc[save_idx_ls]
     final_df[f'{args.aspect}_direct_score'] = direct_score_ls
     final_df[f'{args.aspect}_weighted_score'] = weighted_score_ls
     final_df[f'{args.aspect}_weighted_direct_score'] = weighted_direct_score_ls
-    final_df[f'{args.aspect}_internal_score'] = internalscore_ls
-    final_df[f'{args.aspect}_pred_score1'] = pred_score_ls1
-    final_df[f'{args.aspect}_pred_score2'] = pred_score_ls2
-    final_df[f'{args.aspect}_pred_score3'] = pred_score_ls3
+    final_df[f'{args.aspect}_internal_score'] = avg_weighted_score_ls
+    final_df[f'{args.aspect}_palmscore_w'] = palmscore_w_ls
+    final_df[f'{args.aspect}_palmscore_wo'] = palmscore_wo_ls
 
-    save_path = f'/nfsdata/laip/datasets/sft_data_{args.aspect}_filtered.jsonl'
+
+    save_path = f'results/sft_data_{args.aspect}_filtered.jsonl'
     final_df.to_json(save_path,orient='records',lines=True)
     logger.info(f'Results saved to {save_path}')
 
