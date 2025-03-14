@@ -1,10 +1,7 @@
 from .utils import setup_logger
 import json
 from transformers import AutoTokenizer,AutoModelForCausalLM
-from tqdm import tqdm
 import pandas as pd
-import numpy as np
-import os
 import warnings
 import argparse  
 from .utils import get_layer_outputs,get_batch_inputs
