@@ -47,7 +47,7 @@ if __name__ == '__main__':
     else:
         raise Exception('The models corresponding to data_path and valid_data_path should be the same.')
 
-    weights,all_loss = optimize_layer_weights(data_path = args.valid_data_path, loss_fn = nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
+    weights = optimize_layer_weights(data_path = args.valid_data_path, loss_fn = nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
 
     print("learned weights:", weights)
     weights = weights.numpy()
