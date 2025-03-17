@@ -8,14 +8,14 @@ from tqdm import tqdm
 import pandas as pd
 import warnings
 warnings.filterwarnings("ignore")
-metric_list = ['spearmanr', 'pearsonr', 'kendalltau']
+metric_list = ['spearmanr', 'pearsonr']
 argparseser = argparse.ArgumentParser()
-argparseser.add_argument('--model_path', type=str,default="/data1/laip/model/Shanghai_AI_Laboratory/internlm3-8b-instruct")
+argparseser.add_argument('--model_path', type=str,default="Shanghai_AI_Laboratory/internlm3-8b-instruct")
 argparseser.add_argument('--points', type=int,default=9)
 args = argparseser.parse_args()
 
 model_name = args.model_path.split('/')[-1]
-all_data = json.load(open('sentiment_data.json'))
+all_data = json.load(open('data/sentiment_data.json'))
 
 prompt = '''
 Your task is to predict the likely emotional response of a character in this dialogue:

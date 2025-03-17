@@ -1,10 +1,9 @@
-from .utils import setup_logger
 import json
 from transformers import AutoTokenizer,AutoModelForCausalLM
 import pandas as pd
 import warnings
 import argparse  
-from .utils import get_layer_outputs,get_batch_inputs
+from utils import get_layer_outputs,get_batch_inputs,setup_logger
 
 
 judge_aspects = ['answer_accuracy', 

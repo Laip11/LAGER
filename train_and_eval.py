@@ -86,7 +86,7 @@ def print_correlations(all_score_dict,human_score):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, default='/nfsdata/laip/results/valid/Meta-Llama-3___1-8B-Instruct_logits.json', help='data path')
+    parser.add_argument('--data_path', type=str, default='results/valid/Meta-Llama-3___1-8B-Instruct_logits.json', help='data path')
     args = parser.parse_args()
 
     all_data = json.load(open(args.data_path,'r'))
