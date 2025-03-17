@@ -1,12 +1,9 @@
-from PalmScore.utils import get_batch_inputs,get_layer_outputs
+from utils import get_batch_inputs,get_layer_outputs
 from transformers import AutoModelForCausalLM,AutoTokenizer
-import pandas as pd
-from tqdm import tqdm 
 import os
 import json
 import torch
 import argparse
-import numpy as np
 import torch
 import warnings
 warnings.filterwarnings("ignore")

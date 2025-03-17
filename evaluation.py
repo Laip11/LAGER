@@ -1,16 +1,14 @@
 import json
-from tqdm import tqdm,trange
 import numpy as np
 import pandas as pd
 import torch
 import argparse
-import torch.optim as optim
 import torch.nn as nn
+from src.utils import optimize_layer_weights
 from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
 import random
-from PalmScore.utils import optimize_layer_weights
 
 random.seed(56)
 warnings.filterwarnings("ignore")
@@ -39,33 +37,17 @@ def print_correlations(all_score_dict,human_score):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, default='results/valid/Meta-Llama-3___1-8B-Instruct_logits.json', help='data path')
+    parser.add_argument('--data_path', type=str, required=True)
+    parser.add_argument('--valid_data_path', type=str, required=True)
     args = parser.parse_args()
+    if ( ('llama' in (args.data_path).lower() and 'llama' in (args.valid_data_path).lower()) or
+        ('internlm' in (args.data_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
+        ('mistral' in (args.data_path).lower() and 'mistral' in (args.valid_data_path).lower())):
+        pass
+    else:
+        raise Exception('The models corresponding to data_path and valid_data_path should be the same.')
 
-    all_data = json.load(open(args.data_path,'r'))
-    human_score_ls = []
-    logits_ls = []
-    human_score_ls1 = []
-
-    weighted_score_ls = []
-    loss_fn = nn.CrossEntropyLoss()
-
-    for data in all_data:
-        df = pd.DataFrame(data['df'])
-        if data['weighted_socre']==-1:
-            continue
-
-        _logits = torch.tensor([i for i in df['logits']],dtype=torch.float32)
-        human_score_ls1.append(data['human_score'])
-
-        human_score = torch.tensor(data['human_score'],dtype=torch.long)
-        weighted_score = torch.tensor(df['weighted_score'].to_list(),dtype=torch.float32)
-        human_score_ls.append(human_score)
-        logits_ls.append(_logits)
-        weighted_score_ls.append(weighted_score)
-
-
-    weights,all_loss = optimize_layer_weights(logits_ls, human_score_ls, nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
+    weights,all_loss = optimize_layer_weights(data_path = args.valid_data_path, loss_fn = nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
 
     print("learned weights:", weights)
     weights = weights.numpy()

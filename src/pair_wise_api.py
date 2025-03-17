@@ -1,18 +1,10 @@
 from vllm import LLM, SamplingParams
 import argparse
-import logging
-import os
-import sys
 from tqdm import tqdm
 import numpy as np
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from rewardbench.constants import EXAMPLE_COUNTS, SUBSET_MAPPING
-from rewardbench.generative import process_judgement
 from rewardbench.utils import calculate_scores_per_section
-import math
 import pandas as pd
-import warnings
-import torch
 from get_response_openai import OpenAIClient
 
 def get_args():

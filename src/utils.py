@@ -1,3 +1,11 @@
+import torch
+import random
+from tqdm import trange
+import torch.optim as optim
+import json
+import pandas as pd
+from tqdm import tqdm
+
 def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048,with_cot:int=0):
 
     tokenized_inputs = []
@@ -27,16 +35,12 @@ def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',
 
 
 def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_ids_list,temperature = 0):
-    import tqdm
-    import pandas as pd
-    import torch
 
     all_res = []
     if temperature != 0:
         do_sample = True
     else:
         do_sample = False
-    similarity_matrix = []
     for block_inputs in tqdm(tokenized_inputs):
 
         prompts = block_inputs['batch_prompts']
@@ -151,15 +155,32 @@ def setup_logger(name, log_file='output.log', level=logging.DEBUG):
     logger.info("Logger has been successfully configured.")
     return logger
 
-def optimize_layer_weights(logits_list, targets, loss_fn, num_epochs=2, lr=0.01,min_lr = 1e-3):
-    import torch
-    import random
-    from tqdm import trange
-    import torch.optim as optim
+def optimize_layer_weights(data_path,loss_fn, num_epochs=2, lr=0.01,min_lr = 1e-3):
+
+    all_data = json.load(open(data_path,'r'))
+    human_score_ls = []
+    logits_ls = []
+    human_score_ls1 = []
+
+    weighted_score_ls = []
+
+    for data in all_data:
+        df = pd.DataFrame(data['df'])
+        if data['weighted_socre']==-1:
+            continue
+
+        _logits = torch.tensor([i for i in df['logits']],dtype=torch.float32)
+        human_score_ls1.append(data['human_score'])
+
+        human_score = torch.tensor(data['human_score'],dtype=torch.long)
+        weighted_score = torch.tensor(df['weighted_score'].to_list(),dtype=torch.float32)
+        human_score_ls.append(human_score)
+        logits_ls.append(_logits)
+        weighted_score_ls.append(weighted_score)
 
     all_res=  []
-    L = len(logits_list[0])  
-    random.shuffle(logits_list)
+    L = len(logits_ls[0])  
+    random.shuffle(logits_ls)
     
     weights = torch.nn.Parameter(torch.ones(L, requires_grad=True))
     optimizer = optim.Adam([weights], lr=lr)
@@ -167,9 +188,9 @@ def optimize_layer_weights(logits_list, targets, loss_fn, num_epochs=2, lr=0.01,
     for epoch in trange(num_epochs):
         total_loss = 0
 
-        for sample_idx in trange(len(logits_list)):  
-            logits = logits_list[sample_idx]  
-            target = targets[sample_idx]  
+        for sample_idx in trange(len(logits_ls)):  
+            logits = logits_ls[sample_idx]  
+            target = human_score_ls[sample_idx]  
 
             if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
                 target = target - 1

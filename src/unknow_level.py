@@ -3,9 +3,9 @@ import torch
 import argparse
 import pandas as pd
 from tqdm import tqdm
-import math
 import warnings
 import numpy as np
+from utils import optimize_layer_weights
 
 def find_sublist_position(main_list, sublist):
     n = len(sublist)
@@ -36,37 +36,7 @@ def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',
     return (tokenized_inputs,)
 
 
-def get_layer_outputs(model, tokenized_inputs,tokenizer, temperature=0, max_score=5):
-    if "Mistral" in args.model_path:
-        weights = [0.02530812, 0.02529554, 0.02525384, 0.02544024, 0.0254709 ,
-       0.02538827, 0.02517533, 0.02481054, 0.02489335, 0.02485125,
-       0.02570229, 0.02602397, 0.02684528, 0.02672314, 0.02797128,
-       0.0279035 , 0.02839368, 0.02760266, 0.02747969, 0.02890367,
-       0.03517389, 0.03830925, 0.04022087, 0.03432938, 0.03526052,
-       0.03162143, 0.03453825, 0.05912246, 0.04450823, 0.0135075 ,
-       0.0110993 , 0.01106449, 0.08580787]
-    elif "intern" in args.model_path:
-        weights = [0.02532368, 0.02608873, 0.02565252, 0.02568329, 0.02251901,
-       0.0214611 , 0.02118479, 0.01968816, 0.02265235, 0.0219109 ,
-       0.02135445, 0.01698261, 0.02305569, 0.02254137, 0.02456228,
-       0.01938125, 0.01938198, 0.03340582, 0.04947908, 0.03269262,
-       0.02046547, 0.01132542, 0.00991966, 0.01287424, 0.00894568,
-       0.00456296, 0.00401398, 0.00373798, 0.00364853, 0.00779461,
-       0.0107277 , 0.01476849, 0.00996623, 0.0989219 , 0.13831984,
-       0.00277205, 0.00235647, 0.00221785, 0.00258766, 0.00203182,
-       0.00195165, 0.00179587, 0.00186209, 0.00171047, 0.00193544,
-       0.00224081, 0.00464406, 0.00589424, 0.11100519]
-    elif "Llama" in args.model_path:
-        weights = [0.003437180072069168, 0.0034694664645940065, 0.003370967460796237, 0.0033762697130441666,
-        0.0032019256614148617, 0.003022323828190565, 0.0027004529256373644, 0.0031398916617035866,
-        0.00311932316981256, 0.0032164095900952816, 0.0035408996045589447, 0.003587346524000168,
-        0.003944995813071728, 0.004196827299892902, 0.0036134175024926662, 0.003482070518657565,
-        0.0035765226930379868, 0.002972847782075405, 0.002817249856889248, 0.0024364066775888205,
-        0.0024376907385885715,0.0024486437905579805,0.0036508042830973864, 0.8593869209289551,
-        0.0031657542567700148, 0.003469533985480666, 0.0035897952038794756, 0.009388254024088383,
-        0.005958248395472765, 0.005170912481844425, 0.005272462032735348, 0.0053072962909936905,
-        0.024530891329050064]
-
+def get_layer_outputs(model, tokenized_inputs,tokenizer, weights,temperature=0, max_score=5):
     try:
         points_ids_list = [tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1, max_score+1)]
     except:
@@ -175,7 +145,21 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str, help="")
     parser.add_argument("--in_file", type=str, help="")
     parser.add_argument("--debug", action="store_true", help="")
+    parser.add_argument('--valid_data_path', type=str,required=True)
     args = parser.parse_args()
+
+    if ( ('llama' in (args.model_path).lower() and 'llama' in (args.valid_data_path).lower()) or
+        ('internlm' in (args.model_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
+        ('mistral' in (args.model_path).lower() and 'mistral' in (args.valid_data_path).lower())):
+        pass
+    else:
+        raise Exception('The model must be consistent with the valid_data_path.')
+
+
+    weights = optimize_layer_weights(data_path=args.valid_data_path,
+                                     loss_fn=torch.nn.CrossEntropyLoss(),
+                                     num_epochs=2,
+                                     lr=0.01)
 
     # load dataset
     if args.debug:
@@ -218,7 +202,7 @@ if __name__ == "__main__":
         tokenized_inputs = get_batch_inputs(prompts, tokenizer, batch_size=1)[0]
 
         # generate scores
-        direct_score, weighted_score, weighted_weighted_score, palm_score_wt, palm_score_wot, res = get_layer_outputs(model, tokenized_inputs, tokenizer, temperature=0)
+        direct_score, weighted_score, weighted_weighted_score, palm_score_wt, palm_score_wot, res = get_layer_outputs(model, tokenized_inputs, tokenizer, weights,temperature=0)
 
         if type(res) == type("-1"):
             res = "-1"

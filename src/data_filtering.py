@@ -1,9 +1,8 @@
-import json
 from transformers import AutoTokenizer,AutoModelForCausalLM
 import pandas as pd
 import warnings
 import argparse  
-from PalmScore.utils import get_layer_outputs,get_batch_inputs,setup_logger
+from utils import get_layer_outputs,get_batch_inputs,setup_logger,optimize_layer_weights
 
 
 judge_aspects = ['answer_accuracy', 
@@ -19,14 +18,28 @@ warnings.filterwarnings("ignore")
 
 if __name__ == '__main__':
     import torch
-    args = argparse.ArgumentParser()
-    args.add_argument('--aspect', type=str,required=True)
-    args.add_argument('--model_name_or_path', required=True)
-    args.add_argument('--batch_size', type=int,default=16)
-    args = args.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--aspect', type=str,required=True)
+    parser.add_argument('--model_name_or_path', required=True)
+    parser.add_argument('--batch_size', type=int,default=16)
+    parser.add_argument('--valid_data_path', type=str,required=True)
+    args = parser.parse_args()
+
+    if ( ('llama' in (args.model_path).lower() and 'llama' in (args.valid_data_path).lower()) or
+        ('internlm' in (args.model_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
+        ('mistral' in (args.model_path).lower() and 'mistral' in (args.valid_data_path).lower())):
+        pass
+    else:
+        raise Exception('The model must be consistent with the valid_data_path.')
+
+
+    weights = optimize_layer_weights(data_path=args.valid_data_path,
+                                     loss_fn=torch.nn.CrossEntropyLoss(),
+                                     num_epochs=2,
+                                     lr=0.01)
 
     if args.aspect not in judge_aspects:
-        raise ValueError(f'Aspect {args.aspect} is not in the list of valid aspects: {judge_aspects}')
+        raise ValueError(f'Aspect {args.aspect} is not in the list of judge aspects: {judge_aspects}')
 
     logger = setup_logger(__name__,log_file=f"data_filering_{args.aspect}.log")
 
@@ -57,39 +70,7 @@ if __name__ == '__main__':
 
     logger.info('Data filtering finished.')
     logger.info('Start saving results...')
-    weights = [0.003437180072069168,
- 0.0034694664645940065,
- 0.003370967460796237,
- 0.0033762697130441666,
- 0.0032019256614148617,
- 0.003022323828190565,
- 0.0027004529256373644,
- 0.0031398916617035866,
- 0.00311932316981256,
- 0.0032164095900952816,
- 0.0035408996045589447,
- 0.003587346524000168,
- 0.003944995813071728,
- 0.004196827299892902,
- 0.0036134175024926662,
- 0.003482070518657565,
- 0.0035765226930379868,
- 0.002972847782075405,
- 0.002817249856889248,
- 0.0024364066775888205,
- 0.0024376907385885715,
- 0.0024486437905579805,
- 0.0036508042830973864,
- 0.8593869209289551,
- 0.0031657542567700148,
- 0.003469533985480666,
- 0.0035897952038794756,
- 0.009388254024088383,
- 0.005958248395472765,
- 0.005170912481844425,
- 0.005272462032735348,
- 0.0053072962909936905,
- 0.024530891329050064]
+    
     direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighted_score_ls = [],[],[],[]
     palmscore_w_ls,palmscore_wo_ls = [],[]
     for res in all_res:
