@@ -150,3 +150,52 @@ def setup_logger(name, log_file='output.log', level=logging.DEBUG):
 
     logger.info("Logger has been successfully configured.")
     return logger
+
+def optimize_layer_weights(logits_list, targets, loss_fn, num_epochs=2, lr=0.01,min_lr = 1e-3):
+    import torch
+    import random
+    from tqdm import trange
+    import torch.optim as optim
+
+    all_res=  []
+    L = len(logits_list[0])  
+    random.shuffle(logits_list)
+    
+    weights = torch.nn.Parameter(torch.ones(L, requires_grad=True))
+    optimizer = optim.Adam([weights], lr=lr)
+
+    for epoch in trange(num_epochs):
+        total_loss = 0
+
+        for sample_idx in trange(len(logits_list)):  
+            logits = logits_list[sample_idx]  
+            target = targets[sample_idx]  
+
+            if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
+                target = target - 1
+                target = torch.tensor(target,dtype=torch.long)
+
+            normalized_weights = torch.softmax(weights, dim=0)
+
+            weighted_sum = torch.zeros_like(logits[0])  
+            for l in range(L):
+                if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
+                    weighted_sum += normalized_weights[l] * logits[l]  
+                    predictions = weighted_sum
+                else:
+                    weighted_sum += normalized_weights[l] * (torch.tensor(logits[l])*torch.tensor([1,2,3,4,5])).sum()  
+                    predictions = weighted_sum  
+
+
+            loss = loss_fn(predictions,target)
+
+            total_loss += loss.item()
+            all_res.append(total_loss/(sample_idx+1))
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {total_loss:.4f}")
+
+    return torch.softmax(weights, dim=0).detach()

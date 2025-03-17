@@ -10,57 +10,10 @@ from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
 import random
+from PalmScore.utils import optimize_layer_weights
 
 random.seed(56)
 warnings.filterwarnings("ignore")
-
-
-def optimize_layer_weights(logits_list, targets, loss_fn, num_epochs=2, lr=0.01,min_lr = 1e-3):
-    all_res=  []
-    L = len(logits_list[0])  
-    random.shuffle(logits_list)
-    
-    # 初始化权重
-    weights = torch.nn.Parameter(torch.ones(L, requires_grad=True))
-    optimizer = optim.Adam([weights], lr=lr)
-
-    for epoch in trange(num_epochs):
-        total_loss = 0
-
-        for sample_idx in trange(len(logits_list)):  # 遍历所有样本
-            logits = logits_list[sample_idx]  
-            target = targets[sample_idx]  
-
-            if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
-                target = target - 1
-                target = torch.tensor(target,dtype=torch.long)
-
-            normalized_weights = torch.softmax(weights, dim=0)
-
-            # 计算加权和
-            weighted_sum = torch.zeros_like(logits[0])  
-            for l in range(L):
-                if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
-                    weighted_sum += normalized_weights[l] * logits[l]  # logits累积加权
-                    predictions = weighted_sum
-                else:
-                    weighted_sum += normalized_weights[l] * (torch.tensor(logits[l])*torch.tensor([1,2,3,4,5])).sum()  # 加权求和
-                    predictions = weighted_sum  # 预测结果
-
-
-            loss = loss_fn(predictions,target)
-
-            total_loss += loss.item()
-            all_res.append(total_loss/(sample_idx+1))
-
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {total_loss:.4f}")
-
-    return torch.softmax(weights, dim=0).detach(),all_res
-
 
 def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
     r_ls = ['pearson','spearman']
