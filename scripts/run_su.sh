@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python src/sentiment_understanding.py --model_path Shanghai_AI_Laboratory/internlm3-8b-instruct
