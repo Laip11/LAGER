@@ -132,8 +132,3 @@ if __name__ == '__main__':
 
     print_correlations(all_score_dict,all_human_score)
 
-
-
-'''
-python evaluation.py --data_path /home/laip/PalmScore_local/results/flask/Qwen2___5-32B-Instruct_logits.json --valid_data_path /home/laip/PalmScore_local/results/valid/Qwen2___5-32B-Instruct_logits.json
-'''
