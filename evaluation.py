@@ -27,11 +27,11 @@ def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
 
 def print_correlations(all_score_dict,human_score):
     metrics = ['pearson','spearman']
-    scores = ['direct_score','palmscore_w','palmscore_wo']
+    scores = ['direct_score','palmscore_wo','palmscore_w']
     table = PrettyTable(['score_type']+metrics)
     for score in scores:
         add_row = [score] +[round(calc_corr(all_score_dict[score],score_type=score,human_score=human_score,type_r = 'pearson'),3),
-                            round(calc_corr(all_score_dict[score],score_type='',human_score=human_score,type_r = 'spearman'),3)]
+                            round(calc_corr(all_score_dict[score],score_type=score,human_score=human_score,type_r = 'spearman'),3)]
         table.add_row(add_row)
     print(table)
 
@@ -42,6 +42,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if ( ('llama' in (args.data_path).lower() and 'llama' in (args.valid_data_path).lower()) or
         ('internlm' in (args.data_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
+        ('qwen' in (args.data_path).lower() and 'qwen' in (args.valid_data_path).lower()) or
         ('mistral' in (args.data_path).lower() and 'mistral' in (args.valid_data_path).lower())):
         pass
     else:
@@ -83,7 +84,7 @@ if __name__ == '__main__':
         all_human_score.append(res['human_score'])
         df = pd.DataFrame(res['df']) 
         score = np.array([1,2,3,4,5])
-
+        logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
         # weighed_score 加权
         distribution1 = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1))
         weighted_weighted_score = ((distribution1.apply(lambda x:(x*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()))*weights).sum().item()
@@ -114,7 +115,7 @@ if __name__ == '__main__':
         direct_score_ls.append(res['direct_socre'])
         weighted_score_ls.append(res['weighted_socre'])
         avg_direct_score_ls.append(res['weighted_direct_socre'])
-        avg_weighted_score.append(res['internalscore'])
+        avg_weighted_score.append(df['weighted_score'].mean())
         weighted_weighted_score_ls.append(weighted_weighted_score)
         palmscore_w_ls.append(palmscore_w)
         palmscore_wo_ls.append(palmscore_wo)
@@ -126,9 +127,14 @@ if __name__ == '__main__':
                     'avg_weighted_score':avg_weighted_score,
                     'weighted_weighted_score':weighted_weighted_score_ls,
                     'palmscore_w':palmscore_w_ls,
-                    'palmscore_wo_ls':palmscore_wo_ls,
-                    'avg_logits_weighted_score_ls':avg_logits_weighted_score_ls
+                    'palmscore_wo':palmscore_wo_ls,
+                    'avg_logits_weighted_score':avg_logits_weighted_score_ls
                     }
 
     print_correlations(all_score_dict,all_human_score)
 
+
+
+'''
+python evaluation.py --data_path /home/laip/PalmScore_local/results/flask/Qwen2___5-32B-Instruct_logits.json --valid_data_path /home/laip/PalmScore_local/results/valid/Qwen2___5-32B-Instruct_logits.json
+'''
