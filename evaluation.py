@@ -15,8 +15,7 @@ warnings.filterwarnings("ignore")
 
 def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
     r_ls = ['pearson','spearman']
-    with open(f'predscore_{score_type}.json','w') as f:
-        json.dump(pred_score,f)
+
     if type_r not in r_ls:
         raise ValueError('type_r must be one of {}'.format(r_ls))
     elif type_r == 'pearson':
