@@ -17,7 +17,7 @@ if __name__ == '__main__':
     argparser.add_argument('--batch_size', type=int, default=4)
     argparser.add_argument('--max_new_tokens', type=int, default=256)
     argparser.add_argument('--input_file', type=str)
-    argparser.add_argument('--with_feedback', type=int, default=0)
+    argparser.add_argument('--with_feedback', action='store_true')
     argparser.add_argument('--dtype', type=str, default='bfloat16')
     argparser.add_argument('--max_length', type=int, default=2048)
     argparser.add_argument('--temperature', type=float, default=0)
@@ -30,48 +30,80 @@ if __name__ == '__main__':
         data_name = 'valid'
     elif 'helpsteer' in (args.input_file).lower():
         data_name = 'helpsteer'
+    elif 'biggen' in (args.input_file).lower():
+        data_name = 'biggen'
     else:
         data_name = args.input_file.split('/')[-1].split('.')[0]
+
+    model_name = args.model_name_or_path.split('/')[-1]
+
+    if not os.path.exists(f'{args.save_dir}/{data_name}'):
+            os.makedirs(f'{args.save_dir}/{data_name}')
+
+    out_dir = f"{args.save_dir}/{data_name}/{model_name}{'_with_feedback'*args.with_feedback}_logits.json"
+
+    if os.path.exists(out_dir):
+        print(f'{out_dir} already exists, skip')
+        exit()
+    else:
+        print(f'{out_dir} does not exist, start to generate')
 
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         device_map = 'auto',
         torch_dtype = args.dtype,
+        attn_implementation="flash_attention_2",
         trust_remote_code=True).eval()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path,trust_remote_code=True)
 
-
-    model_name = args.model_name_or_path.split('/')[-1]
-
     points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1,args.points+1)]
 
-    all_prompts = []
-    score_ls = []
+    all_prompts,score_ls = [],[]
 
     # load dataset
     with open(args.input_file, 'r', encoding='utf-8') as f:
         for line in f:
-            try:
-                data = json.loads(line)
-            except:
-                continue
+            data = json.loads(line)
+            score_ls.append(sum(data['score'])/len(data['score']) if type(data['score'])==list else data['score'])
+
             if args.with_feedback:
                 all_prompts.append(data['user_prompt_feedback'])
             else:
                 all_prompts.append(data['user_prompt'])
-            score_ls.append(sum(data['score'])/len(data['score']) if type(data['score'])==list else data['score'])
+
             if data_name == 'helpsteer':
                 if len(all_prompts)>2000:
                     break
-    print(len(all_prompts))
 
-    tokenized_inputs,save_idx_ls = get_batch_inputs(all_prompts,
-                                                    tokenizer,
-                                                    with_cot = args.with_cot,
-                                                    batch_size = args.batch_size,
-                                                    device = f'cuda:{cuda_n-1}',
-                                                    max_length=args.max_length)
+
+    # biggen bench can not use batch inference
+    if data_name == 'biggen':
+        tokenized_inputs = []
+        if tokenizer.pad_token_id == None:
+            tokenizer.pad_token_id = tokenizer.eos_token_id
+
+        messages = [{"role": "user", "content": prompt } for prompt in all_prompts]
+
+        all_text = [tokenizer.apply_chat_template([message],tokenize=False,add_generation_prompt = True) for message in messages]
+
+        save_idx_ls,post_del_text = [],[]
+        for i in range(len(all_text)):
+            text = all_text[i]
+            save_idx_ls.append(i)
+            post_del_text.append(text)
+
+        for i in range(0,len(post_del_text)):
+            text_batch = post_del_text[i]
+            batch_prompts = [all_prompts[i]]
+            batch_inputs = tokenizer(text_batch, padding='longest',return_tensors="pt",padding_side = 'left').to(model.device)
+            tokenized_inputs.append({'batch_prompts':batch_prompts, 'batch_inputs':batch_inputs,'text_batch':text_batch})
+    else:
+        tokenized_inputs,save_idx_ls = get_batch_inputs(all_prompts,
+                                                        tokenizer,
+                                                        batch_size = args.batch_size,
+                                                        device = f'cuda:{cuda_n-1}',
+                                                        max_length=args.max_length)
     
     all_res = get_layer_outputs(model,
                                 tokenized_inputs,
@@ -104,10 +136,6 @@ if __name__ == '__main__':
                 'df':res1.to_dict()}
         processed_res.append(dict1_res)
 
-    if not os.path.exists(f'{args.save_dir}/{data_name}'):
-            os.makedirs(f'{args.save_dir}/{data_name}')
-
-    out_dir = f"{args.save_dir}/{data_name}/{model_name}{'_with_feedback'*args.with_feedback}_logits.json"
     with open(out_dir, 'w') as f:
         json.dump(processed_res, f, indent=4)
 

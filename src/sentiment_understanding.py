@@ -1,12 +1,13 @@
 import json
 from transformers import AutoTokenizer,AutoModelForCausalLM
 import torch
+import torch.nn as nn
 import argparse
 from scipy.stats import spearmanr, pearsonr
 from tqdm import tqdm
 import pandas as pd
 import warnings
-from utils import optimize_layer_weights
+from utils import optimize_layer_weights1
 warnings.filterwarnings("ignore")
 
 
@@ -39,16 +40,18 @@ if __name__ == '__main__':
         raise Exception('The model must be consistent with the valid_data_path.')
 
 
-    weights = optimize_layer_weights(data_path=args.valid_data_path,
-                                     loss_fn=torch.nn.CrossEntropyLoss(),
-                                     num_epochs=2,
-                                     lr=0.01)
-
+    weights = optimize_layer_weights1(data_path = args.valid_data_path, 
+                                      loss_fn = nn.CrossEntropyLoss(),
+                                      num_epochs=1, 
+                                      lr=0.01,
+                                      batch_size = 8,
+                                      seed = 42)
+    weights = weights.numpy()
     model_name = args.model_path.split('/')[-1]
     all_data = json.load(open('data/sentiment_data.json'))
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_path,torch_dtype = 'bfloat16',device_map = 'cuda').eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    model = AutoModelForCausalLM.from_pretrained(args.model_path,torch_dtype = 'bfloat16',device_map = 'cuda',trust_remote_code=True).eval()
+    tokenizer = AutoTokenizer.from_pretrained(args.model_path,trust_remote_code=True)
     try:
         points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1,args.points+1)]
     except:

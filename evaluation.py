@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 import argparse
 import torch.nn as nn
-from src.utils import optimize_layer_weights
+from src.utils import optimize_layer_weights1
 from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
@@ -26,7 +26,7 @@ def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
 
 def print_correlations(all_score_dict,human_score):
     metrics = ['pearson','spearman']
-    scores = ['direct_score','palmscore_wo','palmscore_w']
+    scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
     table = PrettyTable(['score_type']+metrics)
     for score in scores:
         add_row = [score] +[round(calc_corr(all_score_dict[score],score_type=score,human_score=human_score,type_r = 'pearson'),3),
@@ -47,7 +47,12 @@ if __name__ == '__main__':
     else:
         raise Exception('The models corresponding to data_path and valid_data_path should be the same.')
 
-    weights = optimize_layer_weights(data_path = args.valid_data_path, loss_fn = nn.CrossEntropyLoss(),num_epochs=1, lr=0.01)
+    weights = optimize_layer_weights1(data_path = args.valid_data_path, 
+                                      loss_fn = nn.CrossEntropyLoss(),
+                                      num_epochs=1, 
+                                      lr=0.01,
+                                      batch_size = 8,
+                                      seed = 42)
 
     print("learned weights:", weights)
     weights = weights.numpy()
@@ -131,4 +136,11 @@ if __name__ == '__main__':
                     }
 
     print_correlations(all_score_dict,all_human_score)
-
+    # with open('scores/direct_score.json','w') as f:
+    #     json.dump(direct_score_ls,f)
+    # with open('scores/weighted_score.json','w') as f:
+    #     json.dump(weighted_score_ls,f)
+    # with open('scores/palmscore_w.json','w') as f:
+    #     json.dump(palmscore_w_ls,f)
+    # with open('scores/human_score.json','w') as f:
+    #     json.dump(all_human_score,f)

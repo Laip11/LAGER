@@ -1,10 +1,14 @@
-import torch
 import random
-from tqdm import trange
-import torch.optim as optim
 import json
 import pandas as pd
 from tqdm import tqdm
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+from tqdm import trange
+import matplotlib.pyplot as plt
+
 
 def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048,with_cot:int=0):
 
@@ -57,7 +61,7 @@ def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_id
         responses_ids = outputs.sequences[:,block_inputs['batch_inputs']['input_ids'].shape[-1]:]
         columns = ['layer_n','direct_score','weighted_score','probs']
         responses = tokenizer.batch_decode(responses_ids,skip_special_tokens=True)
-        print(responses)
+        #print(responses)
         
         for i in range(responses_ids.shape[0]):
             score_idxs  = None
@@ -155,68 +159,100 @@ def setup_logger(name, log_file='output.log', level=logging.DEBUG):
     logger.info("Logger has been successfully configured.")
     return logger
 
-def optimize_layer_weights(data_path,loss_fn, num_epochs=2, lr=0.01,min_lr = 1e-3):
+class CustomDataset(Dataset):
+    def __init__(self, data_path):
+        all_data = json.load(open(data_path, 'r'))
+        self.human_score_ls = []
+        self.logits_ls = []
+        self.weighted_score_ls = []
 
-    all_data = json.load(open(data_path,'r'))
-    human_score_ls = []
-    logits_ls = []
-    human_score_ls1 = []
+        for data in all_data:
+            df = pd.DataFrame(data['df'])
+            if data['weighted_socre'] == -1:  # Skip invalid data
+                continue
 
-    weighted_score_ls = []
+            _logits = torch.tensor([i for i in df['logits']], dtype=torch.float32)
+            human_score = torch.tensor(data['human_score'], dtype=torch.long)
+            weighted_score = torch.tensor(df['weighted_score'].to_list(), dtype=torch.float32)
 
-    for data in all_data:
-        df = pd.DataFrame(data['df'])
-        if data['weighted_socre']==-1:
-            continue
+            self.human_score_ls.append(human_score)
+            self.logits_ls.append(_logits)
+            self.weighted_score_ls.append(weighted_score)
 
-        _logits = torch.tensor([i for i in df['logits']],dtype=torch.float32)
-        human_score_ls1.append(data['human_score'])
+    def __len__(self):
+        return len(self.logits_ls)
 
-        human_score = torch.tensor(data['human_score'],dtype=torch.long)
-        weighted_score = torch.tensor(df['weighted_score'].to_list(),dtype=torch.float32)
-        human_score_ls.append(human_score)
-        logits_ls.append(_logits)
-        weighted_score_ls.append(weighted_score)
+    def __getitem__(self, idx):
+        return self.logits_ls[idx], self.human_score_ls[idx]
 
-    all_res=  []
-    L = len(logits_ls[0])  
-    random.shuffle(logits_ls)
-    
-    weights = torch.nn.Parameter(torch.ones(L, requires_grad=True))
+
+def optimize_layer_weights(data_path, loss_fn, num_epochs=2, lr=0.01, min_lr=1e-3, batch_size=8,seed=42):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    # Load data
+    dataset = CustomDataset(data_path)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    L = len(dataset.logits_ls[0])  # Number of layers in logits
+    weights = torch.nn.Parameter(torch.cat([torch.zeros(L - 1), torch.tensor([1.0])]), requires_grad=True)
+    #weights = torch.nn.Parameter(torch.cat([torch.zeros(L)]), requires_grad=True)
+
     optimizer = optim.Adam([weights], lr=lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=1, min_lr=min_lr)
+
+    all_step_losses = []  # Store loss for each step
+    global_step = 0  # Global step counter
 
     for epoch in trange(num_epochs):
         total_loss = 0
+        for batch_logits, batch_targets in dataloader:
+            batch_logits = batch_logits.to(torch.float32)
+            batch_targets = batch_targets.to(torch.long)
 
-        for sample_idx in trange(len(logits_ls)):  
-            logits = logits_ls[sample_idx]  
-            target = human_score_ls[sample_idx]  
-
-            if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
-                target = target - 1
-                target = torch.tensor(target,dtype=torch.long)
+            # Adjust target for CrossEntropyLoss
+            if isinstance(loss_fn, nn.CrossEntropyLoss):
+                batch_targets = batch_targets - 1
 
             normalized_weights = torch.softmax(weights, dim=0)
 
-            weighted_sum = torch.zeros_like(logits[0])  
+            # Compute weighted sum for each sample in the batch
+            weighted_sum = torch.zeros_like(batch_logits[:, 0])
             for l in range(L):
-                if type(loss_fn) == torch.nn.modules.loss.CrossEntropyLoss:
-                    weighted_sum += normalized_weights[l] * logits[l]  
-                    predictions = weighted_sum
+                if isinstance(loss_fn, nn.CrossEntropyLoss):
+                    weighted_sum += normalized_weights[l] * (batch_logits[:, l])
                 else:
-                    weighted_sum += normalized_weights[l] * (torch.tensor(logits[l])*torch.tensor([1,2,3,4,5])).sum()  
-                    predictions = weighted_sum  
+                    weighted_sum += normalized_weights[l] * (batch_logits[:, l] * torch.tensor([1, 2, 3, 4, 5])).sum(dim=1)
 
-
-            loss = loss_fn(predictions,target)
-
-            total_loss += loss.item()
-            all_res.append(total_loss/(sample_idx+1))
+            predictions = weighted_sum
+            loss = loss_fn(predictions, batch_targets)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {total_loss:.4f}")
+            # Record the loss for this step
+            all_step_losses.append((global_step, loss.item()))
+            global_step += 1
 
+            total_loss += loss.item()
+
+        avg_loss = total_loss / len(dataloader)
+        scheduler.step(avg_loss)
+
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}")
+
+    # 绘制每个 step 的损失曲线
+    steps, losses = zip(*all_step_losses)  # 解压 step 和 loss
+    plt.figure(figsize=(10, 6))
+    plt.plot(steps, losses, marker='.', linestyle='-', color='b', alpha=0.7)
+    plt.title("Training Loss Over Steps")
+    plt.xlabel("Step")
+    plt.ylabel("Loss")
+    plt.grid(True)
+    plt.savefig("loss-step-figure.png")  # 保存图像
+    plt.show()
     return torch.softmax(weights, dim=0).detach()
+

@@ -63,7 +63,7 @@ def get_layer_outputs(model, tokenized_inputs,tokenizer, weights,temperature=0, 
                         max_new_tokens = 16
                         )
         responses_ids = outputs.sequences[:,block_inputs['batch_inputs']['input_ids'].shape[-1]:]
-        responses = tokenizer.batch_decode(responses_ids,skip_special_tokens=True)
+        #responses = tokenizer.batch_decode(responses_ids,skip_special_tokens=True)
         
         columns = ['layer_n','direct_score','weighted_score', 'logits', 'probs','entropy','ratio']
 

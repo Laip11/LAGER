@@ -27,6 +27,7 @@ if __name__ == '__main__':
 
     if ( ('llama' in (args.model_path).lower() and 'llama' in (args.valid_data_path).lower()) or
         ('internlm' in (args.model_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
+        ('qwen' in (args.model_path).lower() and 'qwen' in (args.valid_data_path).lower()) or
         ('mistral' in (args.model_path).lower() and 'mistral' in (args.valid_data_path).lower())):
         pass
     else:
