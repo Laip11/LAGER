@@ -1,5 +1,4 @@
 import json
-from transformers import AutoTokenizer,AutoModelForCausalLM
 import torch
 import torch.nn as nn
 import argparse
@@ -7,7 +6,8 @@ from scipy.stats import spearmanr, pearsonr
 from tqdm import tqdm
 import pandas as pd
 import warnings
-from utils import optimize_layer_weights1
+from PalmScore.utils import validate_model_and_data_consistency,load_model_and_tokenizer
+from PalmScore.optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
 
@@ -23,44 +23,47 @@ At the end of this dialogue, rate how strongly [human] is likely feeling [emotio
 You only need to output your rating, with no additional commentary:
 
 '''
-
-if __name__ == '__main__':
-
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str,default="Shanghai_AI_Laboratory/internlm3-8b-instruct")
     parser.add_argument('--points', type=int,default=9)
     parser.add_argument('--valid_data_path', type=str,required=True)
     args = parser.parse_args()
+    return args
 
-    if ( ('llama' in (args.model_path).lower() and 'llama' in (args.valid_data_path).lower()) or
-        ('internlm' in (args.model_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
-        ('mistral' in (args.model_path).lower() and 'mistral' in (args.valid_data_path).lower())):
-        pass
-    else:
-        raise Exception('The model must be consistent with the valid_data_path.')
-
-
-    weights = optimize_layer_weights1(data_path = args.valid_data_path, 
-                                      loss_fn = nn.CrossEntropyLoss(),
-                                      num_epochs=1, 
-                                      lr=0.01,
-                                      batch_size = 8,
-                                      seed = 42)
-    weights = weights.numpy()
+def main():
+    args = get_args()
     model_name = args.model_path.split('/')[-1]
+
+    validate_model_and_data_consistency(args.model_path, args.valid_data_path)
+
+
+    weights = optimize_layer_weights(
+        data_path = args.valid_data_path, 
+        loss_fn = nn.CrossEntropyLoss(),
+        num_epochs=1, 
+        lr=0.01,
+        batch_size = 8,
+        seed = 42).numpy()
+    
     all_data = json.load(open('data/sentiment_data.json'))
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_path,torch_dtype = 'bfloat16',device_map = 'cuda',trust_remote_code=True).eval()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_path,trust_remote_code=True)
+    model,tokenizer = load_model_and_tokenizer(args.model_path)
+    
     try:
-        points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1,args.points+1)]
+        points_ids_list = [ 
+            tokenizer.convert_tokens_to_ids([str(i)])[0] 
+            for i in range(1,args.points+1)
+            ]
     except:
-        points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i).encode()])[0] for i in range(1,args.points+1)]
+        points_ids_list = [ 
+            tokenizer.convert_tokens_to_ids([str(i).encode()])[0] 
+            for i in range(1,args.points+1)
+            ]
 
-    res_score = []
-    direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighed_score_ls,palmscore_w_ls,palmscore_wo_ls= [],[],[],[],[],[]
+    res_score,direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighed_score_ls,palmscore_w_ls,palmscore_wo_ls= [],[],[],[],[],[],[]
+
     for data in tqdm(all_data):
-        
         _prompt = prompt.replace('[dialogue]',data['dialogue']).replace('[emotion_name]',data['emotion']).replace('[human]',data['human'])
         message = [{'role':'user','content':_prompt}]
         inputs = tokenizer.apply_chat_template(message,tokenize=False,add_generation_prompt = True)
@@ -115,10 +118,11 @@ if __name__ == '__main__':
 
         res['logits'] = logits_list
         logits = res['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # 加权
+        # palmscore(w. tuning)
         distribution1 = torch.softmax((logits*weights).sum(),dim=-1)
         palmscore_w = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
-        # 不加权
+
+        # palmscore(w.o tuning)
         distribution2 = torch.softmax((logits/len(weights)).sum(),dim=-1)
         palmscore_wo = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
@@ -137,7 +141,9 @@ if __name__ == '__main__':
     print(model_name)
     print('direct_score:',round(calc_p(direct_score_ls,res_score),3),round(calc_s(direct_score_ls,res_score),3))
     print('weighted_score:',round(calc_p(weighted_score_ls,res_score),3),round(calc_s(weighted_score_ls,res_score),3))
-    print('weighted_direct_score:',round(calc_p(weighted_direct_score_ls,res_score),3),round(calc_s(weighted_direct_score_ls,res_score),3))
-    print('internalscore:',round(calc_p(avg_weighed_score_ls,res_score),3),round(calc_s(avg_weighed_score_ls,res_score),3))
     print('palmscore_wo:',round(calc_p(palmscore_wo_ls,res_score),3),round(calc_s(palmscore_wo_ls,res_score),3))
     print('palmscore_w:',round(calc_p(palmscore_w_ls,res_score),3),round(calc_s(palmscore_w_ls,res_score),3))
+
+if __name__ == '__main__':
+    main()
+

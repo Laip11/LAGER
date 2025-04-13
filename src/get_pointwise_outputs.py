@@ -1,41 +1,37 @@
-from utils import get_batch_inputs,get_layer_outputs
-from transformers import AutoModelForCausalLM,AutoTokenizer
 import os
 import json
 import torch
 import argparse
-import torch
 import warnings
+from PalmScore.utils import get_batch_inputs,get_layer_outputs,get_data_name,load_data,load_model_and_tokenizer
 warnings.filterwarnings("ignore")
 
+def get_args():
+    """
+    Parse and retrieve command-line arguments.
 
-if __name__ == '__main__':
-    argparser = argparse.ArgumentParser()
-    argparser.add_argument('--model_name_or_path', type=str)
-    argparser.add_argument('--save_dir', type=str,default='results')
-    argparser.add_argument('--points', type=int, default=5)
-    argparser.add_argument('--batch_size', type=int, default=4)
-    argparser.add_argument('--max_new_tokens', type=int, default=256)
-    argparser.add_argument('--input_file', type=str)
-    argparser.add_argument('--with_feedback', action='store_true')
-    argparser.add_argument('--dtype', type=str, default='bfloat16')
-    argparser.add_argument('--max_length', type=int, default=2048)
-    argparser.add_argument('--temperature', type=float, default=0)
-    args = argparser.parse_args()
+    Returns:
+        args (argparse.Namespace): Parsed arguments.
+    """
 
-    cuda_n = torch.cuda.device_count()
-    if 'flask' in (args.input_file).lower():
-        data_name = 'flask'
-    elif 'valid' in (args.input_file).lower():
-        data_name = 'valid'
-    elif 'helpsteer' in (args.input_file).lower():
-        data_name = 'helpsteer'
-    elif 'biggen' in (args.input_file).lower():
-        data_name = 'biggen'
-    else:
-        data_name = args.input_file.split('/')[-1].split('.')[0]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_name_or_path',required=True,type=str)
+    parser.add_argument('--save_dir',type=str,default='results')
+    parser.add_argument('--points',type=int,default=5,help='the max number of points to score.')
+    parser.add_argument('--batch_size',type=int,default=4)
+    parser.add_argument('--max_new_tokens',type=int,default=256,help='Maximum number of tokens to generate.')
+    parser.add_argument('--input_file',type=str,required=True,help='the path of the input file.')
+    parser.add_argument('--with_feedback',action='store_true',help='whether to use reasoning or not.')
+    parser.add_argument('--dtype',type=str,default='bfloat16',)
+    parser.add_argument('--max_length',type=int,default=2048,help='Maximum sequence length of the input sequence.')
+    parser.add_argument('--temperature',type=float,default=0)
+    args = parser.parse_args()
 
-    model_name = args.model_name_or_path.split('/')[-1]
+    return args
+
+def main():
+    args = get_args()
+    data_name,model_name = get_data_name(args.input_file),args.model_name_or_path.split('/')[-1]
 
     if not os.path.exists(f'{args.save_dir}/{data_name}'):
             os.makedirs(f'{args.save_dir}/{data_name}')
@@ -48,61 +44,35 @@ if __name__ == '__main__':
     else:
         print(f'{out_dir} does not exist, start to generate')
 
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_name_or_path,
-        device_map = 'auto',
-        torch_dtype = args.dtype,
-        attn_implementation="flash_attention_2",
-        trust_remote_code=True).eval()
+    model,tokenizer = load_model_and_tokenizer(args.model_name_or_path)
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path,trust_remote_code=True)
+    points_ids_list = [
+        tokenizer.convert_tokens_to_ids([str(i)])[0] 
+        for i in range(1,args.points+1)
+        ]
 
-    points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1,args.points+1)]
-
-    all_prompts,score_ls = [],[]
-
-    # load dataset
-    with open(args.input_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            data = json.loads(line)
-            score_ls.append(sum(data['score'])/len(data['score']) if type(data['score'])==list else data['score'])
-
-            if args.with_feedback:
-                all_prompts.append(data['user_prompt_feedback'])
-            else:
-                all_prompts.append(data['user_prompt'])
-
-            if data_name == 'helpsteer':
-                if len(all_prompts)>2000:
-                    break
+    # load data
+    score_ls,all_prompts = load_data(args.input_file,args.with_feedback)
 
 
     # biggen bench can not use batch inference
     if data_name == 'biggen':
         tokenized_inputs = []
-        if tokenizer.pad_token_id == None:
-            tokenizer.pad_token_id = tokenizer.eos_token_id
 
         messages = [{"role": "user", "content": prompt } for prompt in all_prompts]
 
         all_text = [tokenizer.apply_chat_template([message],tokenize=False,add_generation_prompt = True) for message in messages]
 
-        save_idx_ls,post_del_text = [],[]
-        for i in range(len(all_text)):
-            text = all_text[i]
-            save_idx_ls.append(i)
-            post_del_text.append(text)
-
-        for i in range(0,len(post_del_text)):
-            text_batch = post_del_text[i]
+        tokenized_inputs = []
+        for i, text in enumerate(all_text):
             batch_prompts = [all_prompts[i]]
-            batch_inputs = tokenizer(text_batch, padding='longest',return_tensors="pt",padding_side = 'left').to(model.device)
-            tokenized_inputs.append({'batch_prompts':batch_prompts, 'batch_inputs':batch_inputs,'text_batch':text_batch})
+            batch_inputs = tokenizer(text,return_tensors="pt").to(model.device)
+            tokenized_inputs.append({'batch_prompts': batch_prompts,'batch_inputs': batch_inputs,'text_batch': text})
     else:
         tokenized_inputs,save_idx_ls = get_batch_inputs(all_prompts,
                                                         tokenizer,
                                                         batch_size = args.batch_size,
-                                                        device = f'cuda:{cuda_n-1}',
+                                                        device = f'cuda:{torch.cuda.device_count()-1}',
                                                         max_length=args.max_length)
     
     all_res = get_layer_outputs(model,
@@ -138,4 +108,9 @@ if __name__ == '__main__':
 
     with open(out_dir, 'w') as f:
         json.dump(processed_res, f, indent=4)
+
+if __name__ == '__main__':
+    main()
+
+    
 

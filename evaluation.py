@@ -1,17 +1,22 @@
 import json
-import numpy as np
 import pandas as pd
 import torch
 import argparse
 import torch.nn as nn
-from src.utils import optimize_layer_weights1
+from utils import validate_data_consistency
+from optimize_layer_weights import optimize_layer_weights
 from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
-import random
-
-random.seed(56)
 warnings.filterwarnings("ignore")
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_path', type=str, required=True)
+    parser.add_argument('--valid_data_path', type=str, required=True)
+    args = parser.parse_args()
+    return args
+
 
 def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
     r_ls = ['pearson','spearman']
@@ -34,50 +39,24 @@ def print_correlations(all_score_dict,human_score):
         table.add_row(add_row)
     print(table)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, required=True)
-    parser.add_argument('--valid_data_path', type=str, required=True)
-    args = parser.parse_args()
-    if ( ('llama' in (args.data_path).lower() and 'llama' in (args.valid_data_path).lower()) or
-        ('internlm' in (args.data_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
-        ('qwen' in (args.data_path).lower() and 'qwen' in (args.valid_data_path).lower()) or
-        ('mistral' in (args.data_path).lower() and 'mistral' in (args.valid_data_path).lower())):
-        pass
-    else:
-        raise Exception('The models corresponding to data_path and valid_data_path should be the same.')
+def main():
+    args = get_args()
+    model_name = validate_data_consistency(args.data_path, args.valid_data_path)
 
-    weights = optimize_layer_weights1(data_path = args.valid_data_path, 
+    weights = optimize_layer_weights(data_path = args.valid_data_path, 
                                       loss_fn = nn.CrossEntropyLoss(),
                                       num_epochs=1, 
                                       lr=0.01,
                                       batch_size = 8,
-                                      seed = 42)
+                                      seed = 42).numpy()
 
     print("learned weights:", weights)
-    weights = weights.numpy()
 
-    data_path = args.data_path
-    all_res = json.load(open(data_path))
+    all_res = json.load(open(args.data_path))
 
-    if 'llama' in data_path.lower():
-        model_name = 'Meta-Llama-3___1-8B-Instruct'
-    elif 'mistral' in data_path.lower():
-        model_name = 'Mistral-7B-Instruct-v0___3'
-    elif 'internlm' in data_path.lower():
-        model_name = 'internlm3-8b-instruct'
+    all_human_score,direct_score_ls,weighted_score_ls,avg_direct_score_ls,avg_weighted_score = [],[],[],[],[]
 
-
-    save_ls,all_human_score,direct_score_ls,weighted_score_ls,avg_direct_score_ls,avg_weighted_score = [],[],[],[],[],[]
-
-    weighted_weighted_score_ls = []
-    palmscore_w_ls =[]
-    palmscore_wo_ls = []
-    avg_logits_weighted_score_ls = []
-
-
-    score = np.array([[1,2,3,4,5] for i in range(pd.DataFrame(all_res[0]['df']).shape[0])])
-    final_score  = pd.DataFrame(score)
+    weighted_weighted_score_ls,palmscore_w_ls,palmscore_wo_ls,avg_logits_weighted_score_ls = [],[],[],[]
 
 
     for i in range(len(all_res)):
@@ -87,7 +66,6 @@ if __name__ == '__main__':
             continue
         all_human_score.append(res['human_score'])
         df = pd.DataFrame(res['df']) 
-        score = np.array([1,2,3,4,5])
         logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
         # weighed_score 加权
         distribution1 = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1))
@@ -115,7 +93,6 @@ if __name__ == '__main__':
         distribution4 = torch.softmax((logits/logits.shape[0]).sum(),dim=-1)
         avg_logits_weighted_score = (distribution4*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
 
-        prompt = res['prompt']
         direct_score_ls.append(res['direct_socre'])
         weighted_score_ls.append(res['weighted_socre'])
         avg_direct_score_ls.append(res['weighted_direct_socre'])
@@ -134,7 +111,8 @@ if __name__ == '__main__':
                     'palmscore_wo':palmscore_wo_ls,
                     'avg_logits_weighted_score':avg_logits_weighted_score_ls
                     }
-
+    
+    print('model:',model_name)
     print_correlations(all_score_dict,all_human_score)
     # with open('scores/direct_score.json','w') as f:
     #     json.dump(direct_score_ls,f)
@@ -144,3 +122,6 @@ if __name__ == '__main__':
     #     json.dump(palmscore_w_ls,f)
     # with open('scores/human_score.json','w') as f:
     #     json.dump(all_human_score,f)
+
+if __name__ == '__main__':
+    main()

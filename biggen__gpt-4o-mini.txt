@@ -1,4 +1,0 @@
-spearmanr_direct: 0.5345422463042955
-pearsonr_direct: 0.5765418127853466
-spearmanr_weighted: 0.5733608858982329
-pearsonr_weighted: 0.5886865873945855

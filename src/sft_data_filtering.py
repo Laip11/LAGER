@@ -1,43 +1,40 @@
-from transformers import AutoTokenizer,AutoModelForCausalLM
+import torch
 import pandas as pd
 import warnings
 import argparse  
-from utils import get_layer_outputs,get_batch_inputs,setup_logger,optimize_layer_weights
-
-
-judge_aspects = ['answer_accuracy', 
-               'logical_consistency', 
-               'relevance', 
-               'fluency_and_clarity', 
-               'length_appropriateness', 
-               'diversity', 
-               'instruction_difficulty']
-
+import torch.nn as nn
+from PalmScore.utils import get_layer_outputs,get_batch_inputs,setup_logger,validate_model_and_data_consistency,load_model_and_tokenizer
+from PalmScore.optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
+judge_aspects = [
+    'answer_accuracy', 
+    'logical_consistency', 
+    'relevance', 
+    'fluency_and_clarity', 
+    'length_appropriateness', 
+    'diversity', 
+    'instruction_difficulty'
+    ]
 
-if __name__ == '__main__':
-    import torch
+def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--aspect', type=str,required=True)
     parser.add_argument('--model_name_or_path', required=True)
     parser.add_argument('--batch_size', type=int,default=16)
     parser.add_argument('--valid_data_path', type=str,required=True)
     args = parser.parse_args()
+    return args
 
-    if ( ('llama' in (args.model_path).lower() and 'llama' in (args.valid_data_path).lower()) or
-        ('internlm' in (args.model_path).lower() and 'internlm' in (args.valid_data_path).lower()) or
-        ('qwen' in (args.model_path).lower() and 'qwen' in (args.valid_data_path).lower()) or
-        ('mistral' in (args.model_path).lower() and 'mistral' in (args.valid_data_path).lower())):
-        pass
-    else:
-        raise Exception('The model must be consistent with the valid_data_path.')
-
-
-    weights = optimize_layer_weights(data_path=args.valid_data_path,
-                                     loss_fn=torch.nn.CrossEntropyLoss(),
-                                     num_epochs=2,
-                                     lr=0.01)
+def main():
+    args = get_args()
+    validate_model_and_data_consistency(args.model_name_or_path,args.valid_data_path)
+    weights = optimize_layer_weights(data_path = args.valid_data_path, 
+                                      loss_fn = nn.CrossEntropyLoss(),
+                                      num_epochs=1, 
+                                      lr=0.01,
+                                      batch_size = 8,
+                                      seed = 42)
 
     if args.aspect not in judge_aspects:
         raise ValueError(f'Aspect {args.aspect} is not in the list of judge aspects: {judge_aspects}')
@@ -48,10 +45,8 @@ if __name__ == '__main__':
 
     logger.info('Start loading model and tokenizer...')
     # load model and tokenizer
-    model_path = args.model_path
-
-    model = AutoModelForCausalLM.from_pretrained(model_path,torch_dtype = torch.bfloat16,device_map = 'cuda').eval()
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
+    model,tokenizer = load_model_and_tokenizer(args.model_path)
+    
     points_ids_list = [ tokenizer.convert_tokens_to_ids([str(i)])[0] for i in range(1,10)]
     logger.info('Model and tokenizer loaded.')
 
@@ -84,13 +79,14 @@ if __name__ == '__main__':
             palmscore_w_ls.append(-1)
             palmscore_wo_ls.append(-1)
             continue
+
         logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # 加权 palmscore(w tuning)
+        #  palmscore(w tuning)
         distribution1 = torch.softmax((logits*weights).sum(),dim=-1)
         pre_score1 = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
-        # 不加权 palmscore(w/o tuning)
-        distribution2 = torch.softmax(logits.sum(),dim=-1)
+        # palmscore(w/o tuning)
+        distribution2 = torch.softmax((logits/logits/weights.shape[0]).sum(),dim=-1)
         pre_score2 = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
         direct_score_ls.append(res['res'].iloc[-1]['direct_score'])
@@ -112,5 +108,7 @@ if __name__ == '__main__':
     save_path = f'results/sft_data_{args.aspect}_filtered.jsonl'
     final_df.to_json(save_path,orient='records',lines=True)
     logger.info(f'Results saved to {save_path}')
+if __name__ == '__main__':
+    main()
 
 
