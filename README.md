@@ -1,7 +1,7 @@
 # PalmScore
 The official implementation of the paper "Enhanced LLM-As-A-Judge with Layer-Wise Logits Aggregation"
 
-![Overview](./images/PalmScore.png)
+![Overview](./image/PalmScore.png)
 ## Abstract
 
 LLM-as-a-judge offers fine-grained, flexible and reliable evaluation in various applications like model response evaluation and data synthesis. Previous prompt-based or finetuning-based LLM evaluators have unsatisfactory judge performance or face the problem of generalization. In this work, we propose to estimate the judge score from a general LLM with layer-wise aggregated logits. Motivated by preliminary observations that the middle to top layers collect information required for judgment, we propose aggregating the logits from all layers with lightweight weight parameters while keeping the LLM backbone frozen. Our proposed PalmScore method integrates logits across layers and probabilities across scores to produce a fine-grained judgment score.
