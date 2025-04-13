@@ -22,6 +22,7 @@ def load_model_and_tokenizer(model_path):
         trust_remote_code=True
         )
     return model,tokenizer
+
 def validate_model_and_data_consistency(model_path, valid_data_path):
 
     supported_models = [
@@ -190,19 +191,13 @@ def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_id
     return all_res 
 
 
-log_colors_config = {
-    'DEBUG': 'white',
-    'INFO': 'white',
-    'WARNING': 'blue',
-    'ERROR': 'yellow',
-    'CRITICAL': 'red'}
-def beijing(sec, what):
-    beijing_time = datetime.datetime.now() + datetime.timedelta(hours=8)
-    return beijing_time.timetuple()
-
 
 # 配置日志
 def setup_logger(name, log_file='output.log', level=logging.DEBUG):
+    def beijing(sec, what):
+        beijing_time = datetime.datetime.now() + datetime.timedelta(hours=8)
+        return beijing_time.timetuple()
+
     # Create the logger
     logger = logging.getLogger(name)
     logger.setLevel(level)

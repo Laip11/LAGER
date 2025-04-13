@@ -3,7 +3,7 @@ import json
 import torch
 import argparse
 import warnings
-from PalmScore.utils import get_batch_inputs,get_layer_outputs,get_data_name,load_data,load_model_and_tokenizer
+from utils import get_batch_inputs,get_layer_outputs,get_data_name,load_data,load_model_and_tokenizer
 warnings.filterwarnings("ignore")
 
 def get_args():

@@ -6,8 +6,8 @@ from scipy.stats import spearmanr, pearsonr
 from tqdm import tqdm
 import pandas as pd
 import warnings
-from PalmScore.utils import validate_model_and_data_consistency,load_model_and_tokenizer
-from PalmScore.optimize_layer_weights import optimize_layer_weights
+from utils import *
+from optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
 
