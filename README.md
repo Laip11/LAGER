@@ -15,3 +15,12 @@ Experiments demonstrate the superior performance of the PalmScore method over ba
 
 
 # Environment Setup
+To install the required packages, please follow the instructions below.
+
+```bash
+conda create --name PalmScore python=3.10 -y
+conda activate PalmScore
+git clone https://github.com/Laip11/PalmScore.git
+cd PalmScore
+pip install -r requirements.txt
+```
