@@ -28,10 +28,10 @@ def validate_model_and_data_consistency(model_path, valid_data_path):
     supported_models = [
         "mistral-7b-instruct-v0.3",
         "internlm3-8b-instruct",
-        "llama3.1-8b-instruct",
-        "qwen-2.5-14b-instruct",
+        "llama-3___1-8b-instruct",
+        "qwen-2___5-14b-instruct",
         "mistral-small-24b-instruct",
-        "llama-3.3-70b-instruct"
+        "llama-3___3-70b-instruct"
     ]
     
     model_path_lower = model_path.lower()
@@ -49,10 +49,10 @@ def validate_data_consistency(data_path, valid_data_path):
     supported_models = [
         "mistral-7b-instruct-v0.3",
         "internlm3-8b-instruct",
-        "llama3.1-8b-instruct",
-        "qwen-2.5-14b-instruct",
+        "llama-3___1-8b-instruct",
+        "qwen-2___5-14b-instruct",
         "mistral-small-24b-instruct",
-        "llama-3.3-70b-instruct"
+        "llama-3___3-70b-instruct"
     ]
     
     data_path_lower = data_path.lower()
@@ -99,16 +99,13 @@ def get_data_name(data_path):
     return data_name
 
 
-def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048,with_cot:int=0):
+def get_batch_inputs(prompts, tokenizer, batch_size = 8, padding = 'max_length',device = 'cuda',max_length = 2048):
 
     tokenized_inputs = []
     if tokenizer.pad_token_id == None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    if with_cot:
-        messages = [{"role": "user", "content": prompt+'Please think through it step by step' } for prompt in prompts]
-    else:
-        messages = [{"role": "user", "content": prompt } for prompt in prompts]
+    messages = [{"role": "user", "content": prompt } for prompt in prompts]
 
     all_text = [tokenizer.apply_chat_template([message],tokenize=False,add_generation_prompt = True) for message in messages]
 
@@ -386,12 +383,10 @@ def find_sublist_position(main_list, sublist):
 
 def get_final_score(full_prompt, model, tokenizer, weights, max_new_tokens, max_score):
     prompts = [full_prompt]
-    messages = [{
-        "role": "user", "content": prompts[0]
-    }]
-    tokenized_inputs = get_batch_inputs(prompts, messages, tokenizer, batch_size=1)[0]
+    
+    tokenized_inputs = get_batch_inputs(prompts, tokenizer, batch_size=1)[0]
     # generate score
-    direct_score, weighted_score, palm_score_wt, palm_score_wot, res = get_layer_outputs(
+    direct_score, weighted_score, palm_score_wt, palm_score_wot, res = get_score(
         model, tokenized_inputs, tokenizer, weights, temperature=0, max_new_tokens=max_new_tokens, max_score=max_score, score_token="level"
     )
     

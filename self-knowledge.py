@@ -51,8 +51,7 @@ def get_args():
     parser.add_argument("--model", type=str, help="")
     parser.add_argument("--in_file", type=str, help="")
     parser.add_argument("--valid_data_path", type=str, help="")
-    parser.add_argument("--output_path", type=str, help="")
-    parser.add_argument("--debug", action="store_true", help="")
+    parser.add_argument("--output_path", type=str, default='results')
     args = parser.parse_args()
     return args
 
@@ -76,10 +75,7 @@ def main():
     logger = configure_logging(log_file_path)
 
     # load dataset
-    if args.debug:
-        df = pd.read_json(args.in_file, lines=True).sample(20)
-    else:
-        df = pd.read_json(args.in_file, lines=True)
+    df = pd.read_json(args.in_file, lines=True)
     
     # load model
     model,tokenizer = load_model_and_tokenizer(args.model)
