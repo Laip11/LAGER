@@ -1,0 +1,38 @@
+Metadata-Version: 2.2
+Name: PalmScore
+Version: 0.1.0
+Summary: A package for PalmScore project
+Home-page: https://github.com/Laip11/PalmScore
+Author: Laip11
+Author-email: laip1025@gmail.com
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy==1.26.4
+Requires-Dist: torch==2.5.1
+Requires-Dist: transformers==4.49.0
+Requires-Dist: argparse
+Requires-Dist: tqdm
+Requires-Dist: pandas
+Requires-Dist: datasets==3.1.0
+Requires-Dist: scipy
+Requires-Dist: prettytable
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# PalmScore
+“Code repository for the paper Palmscore，we will release it soon”
