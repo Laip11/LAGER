@@ -80,6 +80,8 @@ python evaluation.py \
 ```
 2. **Instruction Data Selection**
 
+Note: Please make sure that your model is consistent with your `valid_data_path`.
+
 In this experiment, we need to assign scores for seven evaluation criteria, specifically including `answer_accuracy`, `logical_consistency`, `relevance`, `fluency_and_clarity` ,`length_appropriateness`, `diversity`, and `instruction_difficulty`. Please make sure to have collected the scores for all evaluation criteria before proceeding with supervised fine-tuning.
 ```bash
 bash scripts/run_sft_data_filtering.sh
