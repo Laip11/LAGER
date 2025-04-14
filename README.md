@@ -63,12 +63,35 @@ pip install -r requirements.txt
 Note: Please make appropriate adjustments based on your local computing resources. Slight variations in the results may occur due to the influence of batch size, which is a normal behavior.
 
 1. **Main experiments**
-```bash
-## Direct condiiton 
-bash scripts/run_direct.sh
+> Here, we take the evaluation of the Meta-Llama-3.1-8B-Instruct model on Flask as an example.
 
-## Reasoning condition
-bash scripts/run_reasoning.sh
+```bash
+# Direct condiiton 
+CUDA_VISIBLE_DEVICES=0 python3 palmscore/get_pointwise_outputs.py \
+     --model_name_or_path LLM-Research/Meta-Llama-3.1-8B-Instruct \
+     --save_dir results \
+     --points 5 \
+     --batch_size 4 \
+     --max_new_tokens 10 \
+     --dtype bfloat16 \
+     --input_file data/main/flask.json
+
+## You can modify your parameters in the `scripts/run_direct.sh` script and then run it.
+## bash scripts/run_direct.sh
+
+# Reasoning condition
+CUDA_VISIBLE_DEVICES=0 python3 palmscore/get_pointwise_outputs.py \
+      --model_name_or_path  LLM-Research/Meta-Llama-3.1-8B-Instruct \
+      --save_dir results \
+      --points 5 \
+      --batch_size 4 \
+      --max_new_tokens 256 \
+      --with_feedback \
+      --dtype bfloat16 \
+      --input_file data/main/flask.json
+
+## You can modify your parameters in the `scripts/run_reasoning.sh` script and then run it.
+## bash scripts/run_reasoning.sh
 
 ```
 You can run the `evaluation.py` script to obtain the results after generating the data_res and valid_data_res files corresponding to the model. For example,
@@ -84,26 +107,51 @@ Note: Please make sure that your model is consistent with your `valid_data_path`
 
 In this experiment, you need to assign scores for seven evaluation criteria, specifically including `answer_accuracy`, `logical_consistency`, `relevance`, `fluency_and_clarity` ,`length_appropriateness`, `diversity`, and `instruction_difficulty`. Please make sure to have collected the scores for all evaluation criteria before proceeding with supervised fine-tuning.
 ```bash
-bash scripts/run_sft_data_filtering.sh
+CUDA_VISIBLE_DEVICES=0 python3 palmscore/sft_data_filtering.py \
+      --data_path sft_prompt_7type.jsonl\
+      --aspect answer_accuracy \
+      --batch_size 16 \
+      --model_name_or_path LLM-Research/Meta-Llama-3.1-8B-Instruct
+
+## You can modify your parameters in the `scripts/run_sft_data_filtering.sh` script and then run it.
+## bash scripts/run_sft_data_filtering.sh
 ```
 
 3. **Self Knowledge**
 
 Note: Please make sure that your model is consistent with your `valid_data_path`.
 ```bash
-bash scripts/run_self_knowledge.sh
+CUDA_VISIBLE_DEVICES=0 python palmscore/self-knowledge.py \
+    --model LLM-Research/Meta-Llama-3.1-8B-Instruct \
+    --valid_data_path results/valid/Meta-Llama-3___1-8B-Instruct_logits.json \
+    --in_file data/self-knowledge/prompt_unknow.json
+
+## You can modify your parameters in the `scripts/run_self_knowledge.sh` script and then run it.
+## bash scripts/run_self_knowledge.sh
 ```
 4. **Sentiment Understanding**
 
 Note: Please make sure that your model is consistent with your `valid_data_path`.
 ```bash
-run scripts/run_sentiment_understanding.sh
+CUDA_VISIBLE_DEVICES=0 python palmscore/sentiment_understanding.py \
+        --model_path LLM-Research/Meta-Llama-3.1-8B-Instruct \
+        --valid_data_path results/valid/Meta-Llama-3___1-8B-Instruct_logits.json 
+
+## You can modify your parameters in the `scripts/run_sentiment_understanding.sh` script and then run it.
+## run scripts/run_sentiment_understanding.sh
 ```
 
 5. **Ablation Experiment**
 
 - First, obtain the results of InternLM3-8B-Instruct and Mistral-7B-Instruct-V0.3 on Flask under the direct condition.
-- Then, you can uncomment the code in the `evaluation.py` file to make modifications
+- Then you need to change the `scores` in the `print_correlations` function of the `palmscore/evaluation.py` file.
+```python
+# Original variable
+#scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
+
+# Modified variable
+scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w','avg_direct_score_ls','avg_weighted_score'，'weighted_weighted_score_ls','avg_logits_weighted_score_ls']
+```
 - You can obtain the ablation experiment results by following run the `evaluation.py`
 
 ## 📝 Citation

@@ -1,10 +1,13 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 import torch
 import pandas as pd
 import warnings
 import argparse  
 import torch.nn as nn
 from utils import *
-from optimize_layer_weights import optimize_layer_weights
+from palmscore.optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
 judge_aspects = [

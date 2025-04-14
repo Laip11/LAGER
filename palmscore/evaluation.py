@@ -1,10 +1,13 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 import json
 import pandas as pd
 import torch
 import argparse
 import torch.nn as nn
 from utils import validate_data_consistency
-from optimize_layer_weights import optimize_layer_weights
+from palmscore.optimize_layer_weights import optimize_layer_weights
 from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings

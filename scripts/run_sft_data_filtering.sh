@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0 python3 sft_data_filtering.py \
+CUDA_VISIBLE_DEVICES=0 python3 palmscore/sft_data_filtering.py \
       --data_path sft_prompt_7type.jsonl\
       --aspect answer_accuracy \
       --batch_size 16 \

@@ -1,10 +1,13 @@
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent))
 import os
 import argparse
 import pandas as pd
 from tqdm import tqdm
 import torch.nn as nn
 import logging
-from optimize_layer_weights import optimize_layer_weights
+from palmscore.optimize_layer_weights import optimize_layer_weights
 from utils import *
 from sklearn.metrics import f1_score
 

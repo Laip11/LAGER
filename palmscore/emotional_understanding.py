@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+# 将父目录添加到 sys.path
+sys.path.append(str(Path(__file__).parent.parent))
 import json
 import torch
 import torch.nn as nn
@@ -6,8 +11,8 @@ from scipy.stats import spearmanr, pearsonr
 from tqdm import tqdm
 import pandas as pd
 import warnings
-from utils import *
-from optimize_layer_weights import optimize_layer_weights
+from ..utils import *
+from .optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
 
@@ -46,7 +51,7 @@ def main():
         batch_size = 8,
         seed = 42).numpy()
     
-    all_data = json.load(open('data/sentiment_data.json'))
+    all_data = json.load(open('data/emotional_understanding/emotional_data.json'))
 
     model,tokenizer = load_model_and_tokenizer(args.model_path)
     
