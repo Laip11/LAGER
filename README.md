@@ -108,5 +108,5 @@ run scripts/run_sentiment_understanding.sh
 
 ## 📝 Citation
 
-If you would like others to cite your paper, provide the BibTeX citation format here:
+If you find our work useful, please consider citing our paper!
 ```bibtex
