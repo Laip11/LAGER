@@ -27,7 +27,7 @@ Inspired by the insight that middle-to-top layers capture critical judgment info
 
 - [🌟 PalmScore](#-palmscore)
 - [📜 Abstract](#-abstract)
-- [🛠️ Environment Setup](#environment-setup)
+- [🛠️ Environment Setup](#environmentsetup)
 - [🔬 Experiments](#experiments)
 - [📝 Citation](#-citation)
 
