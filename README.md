@@ -19,7 +19,7 @@ Inspired by the insight that middle-to-top layers capture critical judgment info
 🔍 **Key Highlights**:
 - Outperforms baseline methods on **Flask**, **HelpSteer**, and **BIGGen** benchmarks.
 - Achieves comparable or superior performance to reasoning-based baselines, even without reasoning.
-- Excels in downstream tasks like **data selection** and **knowledge boundary detection**.
+- Excels in downstream tasks like **data selection**, **Sentiment Understanding** and **knowledge boundary detection**.
 
 ---
 
