@@ -1,6 +1,2 @@
-BiGGen-Bench-human-eval.json filter=lfs diff=lfs merge=lfs -text
-flask.json filter=lfs diff=lfs merge=lfs -text
-helpsteer.json filter=lfs diff=lfs merge=lfs -text
-hs_valid.jsonl filter=lfs diff=lfs merge=lfs -text
-sentiment_data.json filter=lfs diff=lfs merge=lfs -text
-unknow filter=lfs diff=lfs merge=lfs -text
+*.json filter=lfs diff=lfs merge=lfs -text
+*.jsonl filter=lfs diff=lfs merge=lfs -text
