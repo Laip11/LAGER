@@ -71,6 +71,7 @@ def main():
             batch_prompts = [all_prompts[i]]
             batch_inputs = tokenizer(text,return_tensors="pt").to(model.device)
             tokenized_inputs.append({'batch_prompts': batch_prompts,'batch_inputs': batch_inputs,'text_batch': text})
+        save_idx_ls = [i for i in range(len(all_prompts))]
     else:
         tokenized_inputs,save_idx_ls = get_batch_inputs(all_prompts,
                                                         tokenizer,

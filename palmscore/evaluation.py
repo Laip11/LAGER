@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
+import os
 import json
 import pandas as pd
 import torch
@@ -44,16 +45,17 @@ def print_correlations(all_score_dict,human_score):
 
 def main():
     args = get_args()
-    model_name = validate_data_consistency(args.data_path, args.valid_data_path)
+    #model_name = validate_data_consistency(args.data_path, args.valid_data_path)
 
     weights = optimize_layer_weights(data_path = args.valid_data_path, 
-                                      loss_fn = nn.CrossEntropyLoss(),
                                       num_epochs=1, 
                                       lr=0.01,
-                                      batch_size = 8,
-                                      seed = 42).numpy()
+                                      batch_size = 4,
+                                      seed = 42)
 
     print("learned weights:", weights)
+    weights = weights.detach().cpu().numpy()
+
 
     all_res = json.load(open(args.data_path))
 
@@ -115,16 +117,17 @@ def main():
                     'avg_logits_weighted_score':avg_logits_weighted_score_ls
                     }
     
-    print('model:',model_name)
     print_correlations(all_score_dict,all_human_score)
-    # with open('scores/direct_score.json','w') as f:
-    #     json.dump(direct_score_ls,f)
-    # with open('scores/weighted_score.json','w') as f:
-    #     json.dump(weighted_score_ls,f)
-    # with open('scores/palmscore_w.json','w') as f:
-    #     json.dump(palmscore_w_ls,f)
-    # with open('scores/human_score.json','w') as f:
-    #     json.dump(all_human_score,f)
+    if os.path.exists('scores') == False:
+        os.mkdir('scores')
+    with open('scores/direct_score.json','w') as f:
+        json.dump(direct_score_ls,f)
+    with open('scores/weighted_score.json','w') as f:
+        json.dump(weighted_score_ls,f)
+    with open('scores/palmscore_w.json','w') as f:
+        json.dump(palmscore_w_ls,f)
+    with open('scores/human_score.json','w') as f:
+        json.dump(all_human_score,f)
 
 if __name__ == '__main__':
     main()

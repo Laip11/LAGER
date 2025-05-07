@@ -47,7 +47,7 @@ def validate_model_and_data_consistency(model_path, valid_data_path):
 def validate_data_consistency(data_path, valid_data_path):
     model_name = None
     supported_models = [
-        "mistral-7b-instruct-v0.3",
+        "mistral-7b-instruct-v0___3",
         "internlm3-8b-instruct",
         "llama-3___1-8b-instruct",
         "qwen-2___5-14b-instruct",

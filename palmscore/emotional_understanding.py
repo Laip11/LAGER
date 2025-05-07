@@ -81,8 +81,10 @@ def main():
                     max_new_tokens = 10,
                     )
         responses_ids = outputs.sequences[0][inputs['input_ids'].shape[-1]:]
+        
         # responses = tokenizer.decode(responses_ids,skip_special_tokens=True)
         # print(responses)
+
         columns = ['layer_n','direct_score','weighted_score','probs','ratio']
         
         score_idxs  = None
