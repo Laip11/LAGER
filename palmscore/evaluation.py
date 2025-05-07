@@ -48,7 +48,7 @@ def main():
     #model_name = validate_data_consistency(args.data_path, args.valid_data_path)
 
     weights = optimize_layer_weights(data_path = args.valid_data_path, 
-                                      num_epochs=1, 
+                                      num_epochs=2, 
                                       lr=0.01,
                                       batch_size = 4,
                                       seed = 42)
