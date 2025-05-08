@@ -150,9 +150,18 @@ CUDA_VISIBLE_DEVICES=0 python palmscore/sentiment_understanding.py \
 #scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
 
 # Modified variable
-scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w','avg_direct_score_ls','avg_weighted_score'，'weighted_weighted_score_ls','avg_logits_weighted_score_ls']
+scores = ['palmscore_w',
+              'prob_weighted_agg_e_score',
+              'logits_agg_weighted_max_score',
+              'prob_weighted_agg_max_score',
+              'palmscore_wo',
+              'prob_agg_e_score',
+              'logits_agg_max_score',
+              'prob_agg_max_score',
+              'e_score',
+              'direct_score']
 ```
-- You can obtain the ablation experiment results by following run the `evaluation.py`
+- You can obtain the ablation experiment results by following run the `palmscore/evaluation.py`
 
 ## 📝 Citation
 

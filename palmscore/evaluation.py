@@ -36,6 +36,16 @@ def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
 def print_correlations(all_score_dict,human_score):
     metrics = ['pearson','spearman']
     scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
+    # scores = ['palmscore_w',
+    #           'prob_weighted_agg_e_score',
+    #           'logits_agg_weighted_max_score',
+    #           'prob_weighted_agg_max_score',
+    #           'palmscore_wo',
+    #           'prob_agg_e_score',
+    #           'logits_agg_max_score',
+    #           'prob_agg_max_score',
+    #           'e_score',
+    #           'direct_score']
     table = PrettyTable(['score_type']+metrics)
     for score in scores:
         add_row = [score] +[round(calc_corr(all_score_dict[score],score_type=score,human_score=human_score,type_r = 'pearson'),3),
@@ -48,7 +58,7 @@ def main():
     #model_name = validate_data_consistency(args.data_path, args.valid_data_path)
 
     weights = optimize_layer_weights(data_path = args.valid_data_path, 
-                                      num_epochs=2, 
+                                      num_epochs=1, 
                                       lr=0.01,
                                       batch_size = 4,
                                       seed = 42)
@@ -59,9 +69,9 @@ def main():
 
     all_res = json.load(open(args.data_path))
 
-    all_human_score,direct_score_ls,weighted_score_ls,avg_direct_score_ls,avg_weighted_score = [],[],[],[],[]
+    all_human_score,direct_score_ls,e_score_ls,logits_agg_max_score_ls,prob_weighted_agg_e_score_ls,prob_weighted_agg_max_score_ls = [],[],[],[],[],[]
 
-    weighted_weighted_score_ls,palmscore_w_ls,palmscore_wo_ls,avg_logits_weighted_score_ls = [],[],[],[]
+    logits_agg_weighted_max_score_ls,palmscore_w_ls,palmscore_wo_ls,prob_agg_max_score_ls,layer_direct_score_weighted_ls,prob_agg_e_score_ls = [],[],[],[],[],[]
 
 
     for i in range(len(all_res)):
@@ -72,49 +82,50 @@ def main():
         all_human_score.append(res['human_score'])
         df = pd.DataFrame(res['df']) 
         logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # weighed_score 加权
-        distribution1 = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1))
-        weighted_weighted_score = ((distribution1.apply(lambda x:(x*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()))*weights).sum().item()
 
-        # 累积logits 加权
+        # logits_agg weighted
         distribution2 = torch.softmax((logits*weights).sum(),dim=-1)
         palmscore_w = ((distribution2*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()).item()
+        logits_agg_weighted_max_score = torch.argmax(distribution2).item()+1
 
-        # logits argmax weighted score
-        # logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # distribution2 = (logits).apply(lambda x:torch.tensor(x,dtype=torch.float32).argmax(dim=-1))
-        # pre_score = ((torch.tensor([ i+1 for i in distribution2]))*weights).sum().item()
-
-        #print(pre_score2)
-        #pre_score2 = torch.argmax(distribution2).item()+1
-
-        # 累积logits 不加权    
+    
         distribution3 = torch.softmax((logits/weights.shape[0]).sum(),dim=-1)
         palmscore_wo = (distribution3*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
+        logits_agg_max_score = torch.argmax(distribution3).item()+1
 
-        # 平均logits然后直接加权
-        # logits 不加权然后weighed  avg_logits_weighted_score
-        logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        distribution4 = torch.softmax((logits/logits.shape[0]).sum(),dim=-1)
-        avg_logits_weighted_score = (distribution4*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
+        # prob_agg_max_score
+        distribution4 = logits.apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1)).sum().softmax(dim=-1)
+        
+        prob_agg_e_score = (distribution4*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
+        prob_agg_max_score = torch.argmax(distribution4).item()+1
+
+        # prob_weighted_agg
+        distribution5  = (logits.apply(lambda x:torch.tensor(x,dtype=torch.float32).softmax(dim=-1))*weights).sum().softmax(dim=-1)
+        prob_weighted_agg_e_score = (distribution5*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
+        prob_weighted_agg_max_score = torch.argmax(distribution5).item()+1
 
         direct_score_ls.append(res['direct_socre'])
-        weighted_score_ls.append(res['weighted_socre'])
-        avg_direct_score_ls.append(res['weighted_direct_socre'])
-        avg_weighted_score.append(df['weighted_score'].mean())
-        weighted_weighted_score_ls.append(weighted_weighted_score)
+        e_score_ls.append(res['weighted_socre'])
         palmscore_w_ls.append(palmscore_w)
         palmscore_wo_ls.append(palmscore_wo)
-        avg_logits_weighted_score_ls.append(avg_logits_weighted_score)
+        prob_agg_max_score_ls.append(prob_agg_max_score)
+        prob_agg_e_score_ls.append(prob_agg_e_score)
+        logits_agg_weighted_max_score_ls.append(logits_agg_weighted_max_score)
+        logits_agg_max_score_ls.append(logits_agg_max_score)
+        prob_weighted_agg_e_score_ls.append(prob_weighted_agg_e_score)
+        prob_weighted_agg_max_score_ls.append(prob_weighted_agg_max_score)
         
     all_score_dict = {'direct_score':direct_score_ls,
-                    'weighted_score':weighted_score_ls,
-                    'avg_direct_score':avg_direct_score_ls,
-                    'avg_weighted_score':avg_weighted_score,
-                    'weighted_weighted_score':weighted_weighted_score_ls,
+                    'e_score':e_score_ls,
                     'palmscore_w':palmscore_w_ls,
                     'palmscore_wo':palmscore_wo_ls,
-                    'avg_logits_weighted_score':avg_logits_weighted_score_ls
+                    'prob_agg_max_score':prob_agg_max_score_ls,
+                    'prob_agg_e_score':prob_agg_e_score_ls,
+                    'logits_agg_max_score':logits_agg_max_score_ls,
+                    'logits_agg_weighted_max_score':logits_agg_weighted_max_score_ls,
+                    'prob_weighted_agg_e_score':prob_weighted_agg_e_score_ls,
+                    'prob_weighted_agg_max_score':prob_weighted_agg_max_score_ls
+
                     }
     
     print_correlations(all_score_dict,all_human_score)
@@ -122,8 +133,8 @@ def main():
         os.mkdir('scores')
     with open('scores/direct_score.json','w') as f:
         json.dump(direct_score_ls,f)
-    with open('scores/weighted_score.json','w') as f:
-        json.dump(weighted_score_ls,f)
+    with open('scores/e_score.json','w') as f:
+        json.dump(e_score_ls,f)
     with open('scores/palmscore_w.json','w') as f:
         json.dump(palmscore_w_ls,f)
     with open('scores/human_score.json','w') as f:
