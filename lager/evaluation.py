@@ -8,7 +8,7 @@ import torch
 import argparse
 import torch.nn as nn
 from utils import validate_data_consistency
-from palmscore.optimize_layer_weights import optimize_layer_weights
+from lager.optimize_layer_weights import optimize_layer_weights
 from scipy.stats import spearmanr,pearsonr
 from prettytable import PrettyTable
 import warnings
@@ -35,12 +35,12 @@ def calc_corr(pred_score, score_type,human_score,type_r = 'pearson' ):
 
 def print_correlations(all_score_dict,human_score):
     metrics = ['pearson','spearman']
-    scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
-    # scores = ['palmscore_w',
+    scores = ['direct_score','e_score','lager_wo','lager_w']
+    # scores = ['lager_w',
     #           'prob_weighted_agg_e_score',
     #           'logits_agg_weighted_max_score',
     #           'prob_weighted_agg_max_score',
-    #           'palmscore_wo',
+    #           'lager_wo',
     #           'prob_agg_e_score',
     #           'logits_agg_max_score',
     #           'prob_agg_max_score',
@@ -71,7 +71,7 @@ def main():
 
     all_human_score,direct_score_ls,e_score_ls,logits_agg_max_score_ls,prob_weighted_agg_e_score_ls,prob_weighted_agg_max_score_ls = [],[],[],[],[],[]
 
-    logits_agg_weighted_max_score_ls,palmscore_w_ls,palmscore_wo_ls,prob_agg_max_score_ls,layer_direct_score_weighted_ls,prob_agg_e_score_ls = [],[],[],[],[],[]
+    logits_agg_weighted_max_score_ls,lager_w_ls,lager_wo_ls,prob_agg_max_score_ls,prob_agg_e_score_ls = [],[],[],[],[]
 
 
     for i in range(len(all_res)):
@@ -81,16 +81,16 @@ def main():
             continue
         all_human_score.append(res['human_score'])
         df = pd.DataFrame(res['df']) 
-        logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
+        logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))[:-1]
 
         # logits_agg weighted
         distribution2 = torch.softmax((logits*weights).sum(),dim=-1)
-        palmscore_w = ((distribution2*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()).item()
+        lager_w = ((distribution2*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum()).item()
         logits_agg_weighted_max_score = torch.argmax(distribution2).item()+1
 
     
         distribution3 = torch.softmax((logits/weights.shape[0]).sum(),dim=-1)
-        palmscore_wo = (distribution3*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
+        lager_wo = (distribution3*torch.tensor([1,2,3,4,5],dtype=torch.float32)).sum().item()
         logits_agg_max_score = torch.argmax(distribution3).item()+1
 
         # prob_agg_max_score
@@ -106,8 +106,8 @@ def main():
 
         direct_score_ls.append(res['direct_socre'])
         e_score_ls.append(res['weighted_socre'])
-        palmscore_w_ls.append(palmscore_w)
-        palmscore_wo_ls.append(palmscore_wo)
+        lager_w_ls.append(lager_w)
+        lager_wo_ls.append(lager_wo)
         prob_agg_max_score_ls.append(prob_agg_max_score)
         prob_agg_e_score_ls.append(prob_agg_e_score)
         logits_agg_weighted_max_score_ls.append(logits_agg_weighted_max_score)
@@ -117,8 +117,8 @@ def main():
         
     all_score_dict = {'direct_score':direct_score_ls,
                     'e_score':e_score_ls,
-                    'palmscore_w':palmscore_w_ls,
-                    'palmscore_wo':palmscore_wo_ls,
+                    'lager_w':lager_w_ls,
+                    'lager_wo':lager_wo_ls,
                     'prob_agg_max_score':prob_agg_max_score_ls,
                     'prob_agg_e_score':prob_agg_e_score_ls,
                     'logits_agg_max_score':logits_agg_max_score_ls,
@@ -129,16 +129,16 @@ def main():
                     }
     
     print_correlations(all_score_dict,all_human_score)
-    if os.path.exists('scores') == False:
-        os.mkdir('scores')
-    with open('scores/direct_score.json','w') as f:
-        json.dump(direct_score_ls,f)
-    with open('scores/e_score.json','w') as f:
-        json.dump(e_score_ls,f)
-    with open('scores/palmscore_w.json','w') as f:
-        json.dump(palmscore_w_ls,f)
-    with open('scores/human_score.json','w') as f:
-        json.dump(all_human_score,f)
+    # if os.path.exists('scores') == False:
+    #     os.mkdir('scores')
+    # with open('scores/direct_score.json','w') as f:
+    #     json.dump(direct_score_ls,f)
+    # with open('scores/e_score.json','w') as f:
+    #     json.dump(e_score_ls,f)
+    # with open('scores/lager_w.json','w') as f:
+    #     json.dump(lager_w_ls,f)
+    # with open('scores/human_score.json','w') as f:
+    #     json.dump(all_human_score,f)
 
 if __name__ == '__main__':
     main()

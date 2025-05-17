@@ -66,7 +66,7 @@ def main():
             for i in range(1,args.points+1)
             ]
 
-    res_score,direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighed_score_ls,palmscore_w_ls,palmscore_wo_ls= [],[],[],[],[],[],[]
+    res_score,direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighed_score_ls,lager_w_ls,lager_wo_ls= [],[],[],[],[],[],[]
 
     for data in tqdm(all_data):
         _prompt = prompt.replace('[dialogue]',data['dialogue']).replace('[emotion_name]',data['emotion']).replace('[human]',data['human'])
@@ -125,21 +125,21 @@ def main():
 
         res['logits'] = logits_list
         logits = res['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        # palmscore(w. tuning)
+        # lager(w. tuning)
         distribution1 = torch.softmax((logits*weights).sum(),dim=-1)
-        palmscore_w = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
+        lager_w = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
-        # palmscore(w.o tuning)
+        # lager(w.o tuning)
         distribution2 = torch.softmax((logits/len(weights)).sum(),dim=-1)
-        palmscore_wo = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
+        lager_wo = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
         
         direct_score_ls.append(res.iloc[-1]['direct_score'])
         weighted_score_ls.append(res.iloc[-1]['weighted_score'])
         weighted_direct_score_ls.append(res['direct_score'].mean().item())
         avg_weighed_score_ls.append(res['weighted_score'].mean().item())
-        palmscore_w_ls.append(palmscore_w)
-        palmscore_wo_ls.append(palmscore_wo)
+        lager_w_ls.append(lager_w)
+        lager_wo_ls.append(lager_wo)
 
 
     calc_p = lambda x,y: pearsonr(x,y)[0]
@@ -148,8 +148,8 @@ def main():
     print(model_name)
     print('direct_score:',round(calc_p(direct_score_ls,res_score),3),round(calc_s(direct_score_ls,res_score),3))
     print('weighted_score:',round(calc_p(weighted_score_ls,res_score),3),round(calc_s(weighted_score_ls,res_score),3))
-    print('palmscore_wo:',round(calc_p(palmscore_wo_ls,res_score),3),round(calc_s(palmscore_wo_ls,res_score),3))
-    print('palmscore_w:',round(calc_p(palmscore_w_ls,res_score),3),round(calc_s(palmscore_w_ls,res_score),3))
+    print('lager_wo:',round(calc_p(lager_wo_ls,res_score),3),round(calc_s(lager_wo_ls,res_score),3))
+    print('lager_w:',round(calc_p(lager_w_ls,res_score),3),round(calc_s(lager_w_ls,res_score),3))
 
 if __name__ == '__main__':
     main()

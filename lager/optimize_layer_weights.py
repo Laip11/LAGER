@@ -47,7 +47,7 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     L = len(dataset.logits_ls[0])  
-    weights = torch.nn.Parameter(torch.cat([torch.zeros(L - 1), torch.tensor([1.0])]).to(device), requires_grad=True)
+    weights = torch.nn.Parameter(torch.cat([torch.zeros(L - 1)]).to(device), requires_grad=True)
     alpha = torch.nn.Parameter(torch.tensor([0.5]).to(device), requires_grad=True)
     #weights = torch.nn.Parameter(torch.cat([torch.zeros(L)]), requires_grad=True)
 
@@ -62,7 +62,7 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
         sig_alpha = torch.sigmoid(alpha)
         total_loss = 0
         for batch_logits, batch_targets in dataloader:
-            batch_logits = batch_logits.to(device)
+            batch_logits = batch_logits.to(device)[:,:-1,:]
             batch_targets = batch_targets.to(torch.long).to(device)
 
             
@@ -73,7 +73,7 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
 
             
             weighted_sum = torch.zeros_like(batch_logits[:, 0])
-            for l in range(L):
+            for l in range(L-1):
                     weighted_sum += normalized_weights[l] * (batch_logits[:, l])
                    
             predictions = weighted_sum

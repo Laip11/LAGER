@@ -7,7 +7,7 @@ import warnings
 import argparse  
 import torch.nn as nn
 from utils import *
-from palmscore.optimize_layer_weights import optimize_layer_weights
+from lager.optimize_layer_weights import optimize_layer_weights
 warnings.filterwarnings("ignore")
 
 judge_aspects = [
@@ -71,7 +71,7 @@ def main():
     logger.info('Start saving results...')
     
     direct_score_ls,weighted_score_ls,weighted_direct_score_ls,avg_weighted_score_ls = [],[],[],[]
-    palmscore_w_ls,palmscore_wo_ls = [],[]
+    lager_w_ls,lager_wo_ls = [],[]
     for res in all_res:
         df = pd.DataFrame(res['res'])
         if df['direct_score'].iloc[-1] == -1:
@@ -79,16 +79,16 @@ def main():
             weighted_score_ls.append(-1)
             weighted_direct_score_ls.append(-1)
             avg_weighted_score_ls.append(-1)
-            palmscore_w_ls.append(-1)
-            palmscore_wo_ls.append(-1)
+            lager_w_ls.append(-1)
+            lager_wo_ls.append(-1)
             continue
 
         logits = df['logits'].apply(lambda x:torch.tensor(x,dtype=torch.float32))
-        #  palmscore(w tuning)
+        #  lager(w tuning)
         distribution1 = torch.softmax((logits*weights).sum(),dim=-1)
         pre_score1 = (distribution1*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
-        # palmscore(w/o tuning)
+        # lager(w/o tuning)
         distribution2 = torch.softmax((logits/logits/weights.shape[0]).sum(),dim=-1)
         pre_score2 = (distribution2*torch.tensor([1,2,3,4,5,6,7,8,9],dtype=torch.float32)).sum().item()
 
@@ -97,15 +97,15 @@ def main():
         weighted_direct_score_ls.append(res['res']['direct_score'].mean().item())
         avg_weighted_score_ls.append(res['res']['weighted_score'].mean())
 
-        palmscore_w_ls.append(pre_score1)
-        palmscore_wo_ls.append(pre_score2)
+        lager_w_ls.append(pre_score1)
+        lager_wo_ls.append(pre_score2)
     final_df = all_data[['instruction','input','output',f'prompt_{args.aspect}']].iloc[save_idx_ls]
     final_df[f'{args.aspect}_direct_score'] = direct_score_ls
     final_df[f'{args.aspect}_weighted_score'] = weighted_score_ls
     final_df[f'{args.aspect}_weighted_direct_score'] = weighted_direct_score_ls
     final_df[f'{args.aspect}_internal_score'] = avg_weighted_score_ls
-    final_df[f'{args.aspect}_palmscore_w'] = palmscore_w_ls
-    final_df[f'{args.aspect}_palmscore_wo'] = palmscore_wo_ls
+    final_df[f'{args.aspect}_lager_w'] = lager_w_ls
+    final_df[f'{args.aspect}_lager_wo'] = lager_wo_ls
 
 
     save_path = f'results/sft_data_{args.aspect}_filtered.jsonl'

@@ -7,7 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 import torch.nn as nn
 import logging
-from palmscore.optimize_layer_weights import optimize_layer_weights
+from lager.optimize_layer_weights import optimize_layer_weights
 from utils import *
 from sklearn.metrics import f1_score
 

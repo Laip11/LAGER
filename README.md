@@ -1,18 +1,18 @@
 
 
-# 🌟 PalmScore
+# 🌟 LAGER
 
-Welcome to the official code repository for **[Enhanced LLM-As-A-Judge with Layer-Wise Logits Aggregation]**! 🚀 This repository contains all the code, resources, and instructions needed to explore our work and reproduce the experimental results from our paper. If you are interested in our work or wish to reproduce our experimental results, please read the following sections carefully.
+Welcome to the official code repository for **[Beyond the Surface: Enhancing LLM-as-a-Judge Alignment with Human via Internal Representations]**! 🚀 This repository contains all the code, resources, and instructions needed to explore our work and reproduce the experimental results from our paper. If you are interested in our work or wish to reproduce our experimental results, please read the following sections carefully.
 
 <p align="center">
-  <img src="./image/PalmScore.png" alt="PalmScore Overview" width="1000"/>
+  <img src="./image/LAGER.png" alt="LAGER Overview" width="1000"/>
 </p>
 
 ---
 
 ## 📜 Abstract
 
-**PalmScore** introduces a novel approach to LLM-as-a-judge, enabling fine-grained, flexible, and reliable evaluation for tasks like model response assessment and data synthesis. Unlike traditional prompt-based or finetuning-based evaluators, which often struggle with judge performance or generalization, our method leverages **layer-wise aggregated logits** from a general LLM. 
+**LAGER** introduces a novel approach to LLM-as-a-judge, enabling fine-grained, flexible, and reliable evaluation for tasks like model response assessment and data synthesis. Unlike traditional prompt-based or finetuning-based evaluators, which often struggle with judge performance or generalization, our method leverages **layer-wise aggregated logits** from a general LLM. 
 
 Inspired by the insight that middle-to-top layers capture critical judgment information, we aggregate logits across all layers using lightweight weight parameters, keeping the LLM backbone frozen. This results in a robust and fine-grained judgment score. 
 
@@ -25,7 +25,7 @@ Inspired by the insight that middle-to-top layers capture critical judgment info
 
 ## 📑 Table of Contents
 
-- [🌟 PalmScore](#-palmscore)
+- [🌟 LAGER](#-lager)
 - [📜 Abstract](#-abstract)
 - [🛠️ Environment Setup](#environment-setup)
 - [🔬 Experiments](#experiments)
@@ -39,16 +39,16 @@ Follow the instructions below to set up the environment.
 
 ```bash
 # Create a new conda environment
-conda create --name PalmScore python=3.10 
+conda create --name lager python=3.10 
 
 # Activate the environment
-conda activate PalmScore
+conda activate lager
 
 # Clone the repository
-git clone https://github.com/Laip11/PalmScore.git
+git clone https://github.com/Laip11/lager.git
 
 # Navigate to the project directory
-cd PalmScore
+cd lager
 
 # Install dependencies
 pip install -r requirements.txt
@@ -67,7 +67,7 @@ Note: Please make appropriate adjustments based on your local computing resource
 
 ```bash
 # Direct condiiton 
-CUDA_VISIBLE_DEVICES=0 python3 palmscore/get_pointwise_outputs.py \
+CUDA_VISIBLE_DEVICES=0 python3 lager/get_pointwise_outputs.py \
      --model_name_or_path LLM-Research/Meta-Llama-3.1-8B-Instruct \
      --save_dir results \
      --points 5 \
@@ -80,7 +80,7 @@ CUDA_VISIBLE_DEVICES=0 python3 palmscore/get_pointwise_outputs.py \
 ## bash scripts/run_direct.sh
 
 # Reasoning condition
-CUDA_VISIBLE_DEVICES=0 python3 palmscore/get_pointwise_outputs.py \
+CUDA_VISIBLE_DEVICES=0 python3 lager/get_pointwise_outputs.py \
       --model_name_or_path  LLM-Research/Meta-Llama-3.1-8B-Instruct \
       --save_dir results \
       --points 5 \
@@ -107,7 +107,7 @@ Note: Please make sure that your model is consistent with your `valid_data_path`
 
 In this experiment, you need to assign scores for seven evaluation criteria, specifically including `answer_accuracy`, `logical_consistency`, `relevance`, `fluency_and_clarity` ,`length_appropriateness`, `diversity`, and `instruction_difficulty`. Please make sure to have collected the scores for all evaluation criteria before proceeding with supervised fine-tuning.
 ```bash
-CUDA_VISIBLE_DEVICES=0 python3 palmscore/sft_data_filtering.py \
+CUDA_VISIBLE_DEVICES=0 python3 lager/sft_data_filtering.py \
       --data_path sft_prompt_7type.jsonl\
       --aspect answer_accuracy \
       --batch_size 16 \
@@ -121,7 +121,7 @@ CUDA_VISIBLE_DEVICES=0 python3 palmscore/sft_data_filtering.py \
 
 Note: Please make sure that your model is consistent with your `valid_data_path`.
 ```bash
-CUDA_VISIBLE_DEVICES=0 python palmscore/self-knowledge.py \
+CUDA_VISIBLE_DEVICES=0 python lager/self-knowledge.py \
     --model LLM-Research/Meta-Llama-3.1-8B-Instruct \
     --valid_data_path results/valid/Meta-Llama-3___1-8B-Instruct_logits.json \
     --in_file data/self-knowledge/prompt_unknow.json
@@ -133,7 +133,7 @@ CUDA_VISIBLE_DEVICES=0 python palmscore/self-knowledge.py \
 
 Note: Please make sure that your model is consistent with your `valid_data_path`.
 ```bash
-CUDA_VISIBLE_DEVICES=0 python palmscore/sentiment_understanding.py \
+CUDA_VISIBLE_DEVICES=0 python lager/sentiment_understanding.py \
         --model_path LLM-Research/Meta-Llama-3.1-8B-Instruct \
         --valid_data_path results/valid/Meta-Llama-3___1-8B-Instruct_logits.json 
 
@@ -144,24 +144,24 @@ CUDA_VISIBLE_DEVICES=0 python palmscore/sentiment_understanding.py \
 5. **Ablation Experiment**
 
 - First, obtain the results of InternLM3-8B-Instruct and Mistral-7B-Instruct-V0.3 on Flask under the direct condition.
-- Then you need to change the `scores` in the `print_correlations` function of the `palmscore/evaluation.py` file.
+- Then you need to change the `scores` in the `print_correlations` function of the `lager/evaluation.py` file.
 ```python
 # Original variable
-#scores = ['direct_score','weighted_score','palmscore_wo','palmscore_w']
+#scores = ['direct_score','weighted_score','lager_wo','lager_w']
 
 # Modified variable
-scores = ['palmscore_w',
+scores = ['lager_w',
               'prob_weighted_agg_e_score',
               'logits_agg_weighted_max_score',
               'prob_weighted_agg_max_score',
-              'palmscore_wo',
+              'lager_wo',
               'prob_agg_e_score',
               'logits_agg_max_score',
               'prob_agg_max_score',
               'e_score',
               'direct_score']
 ```
-- You can obtain the ablation experiment results by following run the `palmscore/evaluation.py`
+- You can obtain the ablation experiment results by following run the `lager/evaluation.py`
 
 ## 📝 Citation
 
