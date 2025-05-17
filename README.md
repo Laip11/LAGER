@@ -12,15 +12,14 @@ Welcome to the official code repository for **[Beyond the Surface: Enhancing LLM
 
 ## 📜 Abstract
 
-**LAGER** introduces a novel approach to LLM-as-a-judge, enabling fine-grained, flexible, and reliable evaluation for tasks like model response assessment and data synthesis. Unlike traditional prompt-based or finetuning-based evaluators, which often struggle with judge performance or generalization, our method leverages **layer-wise aggregated logits** from a general LLM. 
+**LAGER** is a lightweight and effective framework for improving *LLM-as-a-Judge* alignment with human scores through internal representations. While traditional approaches often rely on prompt engineering or fine-tuning, **LAGER** sidesteps these complexities by aggregating **layer-wise score-token logits** from a frozen LLM backbone.
 
-Inspired by the insight that middle-to-top layers capture critical judgment information, we aggregate logits across all layers using lightweight weight parameters, keeping the LLM backbone frozen. This results in a robust and fine-grained judgment score. 
+Motivated by findings that middle-to-upper layers encode judgment-relevant features better than the final layer, LAGER aggregates score-token logits from different layers of the model, applies a softmax to construct a score distribution, and computes the expected value as the final score. This effectively leverages rich evaluative signals across layers and overcomes the limitations of relying solely on the final output layer in traditional methods.
 
 🔍 **Key Highlights**:
-- Outperforms baseline methods on **Flask**, **HelpSteer**, and **BIGGen** benchmarks.
-- Achieves comparable or superior performance to reasoning-based baselines, even without reasoning.
-- Excels in downstream tasks like **data selection**, **Sentiment Understanding** and **knowledge boundary detection**.
-
+- Achieves **up to +7.5%** improvement over baselines on **Flask**, **HelpSteer**, and **BIGGen** benchmarks (Spearman correlation).
+- Matches or exceeds **reasoning-based methods** without requiring reasoning traces.
+- Shows robust transferability across diverse downstream tasks, including **data selection**, **emotion understanding**, and **knowledge boundary detection**.
 ---
 
 ## 📑 Table of Contents
