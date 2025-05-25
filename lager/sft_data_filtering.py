@@ -55,7 +55,7 @@ def main():
 
 
     # load data
-    data_path = '/nfsdata/laip/datasets/sft_prompt_7type.jsonl'
+    data_path = 'LAGER/data/sft_prompt_7type.jsonl'
     all_data = pd.read_json(data_path,lines=True)
     all_prompt = all_data[f'prompt_{args.aspect}'].tolist()
     logger.info('Data loaded,starting to tokenize data...')

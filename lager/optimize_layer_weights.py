@@ -79,7 +79,6 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
             predictions = weighted_sum
 
 
-            # 在循环内部
             predictions_mse = (weighted_sum.softmax(dim=-1) * value_tensor).sum(dim=-1)
 
             
@@ -88,7 +87,6 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
             loss_mse = nn.MSELoss()
             loss2= loss_mse(predictions_mse, mse_batch_targets)
             loss = sig_alpha*loss1 + (1-sig_alpha)*loss2
-            #loss = loss1
 
             optimizer.zero_grad()
             loss.backward(retain_graph=True)
@@ -103,7 +101,7 @@ def optimize_layer_weights(data_path, num_epochs=2, lr=0.01, min_lr=1e-3, batch_
         avg_loss = total_loss / len(dataloader)
         scheduler.step(avg_loss)
 
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}")
+        #print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}")
 
     # steps, losses = zip(*all_step_losses)  
     # plt.figure(figsize=(10, 6))

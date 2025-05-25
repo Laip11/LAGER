@@ -146,19 +146,19 @@ CUDA_VISIBLE_DEVICES=0 python lager/sentiment_understanding.py \
 - Then you need to change the `scores` in the `print_correlations` function of the `lager/evaluation.py` file.
 ```python
 # Original variable
-#scores = ['direct_score','weighted_score','lager_wo','lager_w']
+#scores = ['direct_score','e_score','lager_wo','lager_w']
 
 # Modified variable
 scores = ['lager_w',
-              'prob_weighted_agg_e_score',
-              'logits_agg_weighted_max_score',
-              'prob_weighted_agg_max_score',
-              'lager_wo',
-              'prob_agg_e_score',
-              'logits_agg_max_score',
-              'prob_agg_max_score',
-              'e_score',
-              'direct_score']
+          'prob_weighted_agg_e_score',
+          'logits_agg_weighted_max_score',
+          'prob_weighted_agg_max_score',
+          'lager_wo',
+          'prob_agg_e_score',
+          'logits_agg_max_score',
+          'prob_agg_max_score',
+          'e_score',
+          'direct_score']
 ```
 - You can obtain the ablation experiment results by following run the `lager/evaluation.py`
 

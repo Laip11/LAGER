@@ -189,7 +189,6 @@ def get_layer_outputs(model, tokenized_inputs,tokenizer,max_new_tokens,points_id
 
 
 
-# 配置日志
 def setup_logger(name, log_file='output.log', level=logging.DEBUG):
     def beijing(sec, what):
         beijing_time = datetime.datetime.now() + datetime.timedelta(hours=8)
