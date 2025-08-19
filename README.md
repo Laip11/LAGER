@@ -166,3 +166,13 @@ scores = ['lager_w',
 
 If you find our work useful, please consider citing our paper!
 ```bibtex
+@misc{lai2025surfaceenhancingllmasajudgealignment,
+      title={Beyond the Surface: Enhancing LLM-as-a-Judge Alignment with Human via Internal Representations}, 
+      author={Peng Lai and Jianjie Zheng and Sijie Cheng and Yun Chen and Peng Li and Yang Liu and Guanhua Chen},
+      year={2025},
+      eprint={2508.03550},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2508.03550}, 
+}
+```
